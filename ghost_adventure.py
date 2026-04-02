@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════╗
-║              T H E   F O R G O T T E N   O N E               ║
+║              T H E   F O R G O T T E N   O N E              ║
 ║         A Text Adventure of Memory and Discovery             ║
-║                        M.B. Parks                            ║
 ╚══════════════════════════════════════════════════════════════╝
 
 Dynamically generated layouts — no two games are the same.
@@ -1049,12 +1048,12 @@ def show_title():
     title = """
     ╔══════════════════════════════════════════════════════════╗
     ║                                                          ║
-    ║           T H E   F O R G O T T E N   O N E              ║
+    ║           T H E   F O R G O T T E N   O N E             ║
     ║                                                          ║
-    ║          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░          ║
+    ║          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░             ║
     ║          ░  A game of memory, loss, and truth ░          ║
-    ║          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░          ║
-    ║                      M.B. Parks                          ║
+    ║          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░             ║
+    ║                                                          ║
     ╚══════════════════════════════════════════════════════════╝
     """
     print(title)
@@ -1732,6 +1731,7 @@ def parse_command(raw):
         "help": "help", "?": "help", "commands": "help",
         "map": "map", "m": "map",
         "quit": "quit", "exit": "quit", "q": "quit",
+        "whisper": "whisper", "credits": "whisper", "about": "whisper", "author": "whisper",
     }
     return aliases.get(cmd, cmd), arg
 
@@ -1804,6 +1804,31 @@ def main():
                         )
                     else:
                         print("\n  You step back. Not yet.")
+                acted = False
+            elif cmd == "whisper":
+                print()
+                print_separator("·")
+                print()
+                slow_print(
+                    "  You lean close to the wall and whisper.",
+                    delay=0.025,
+                )
+                dramatic_pause(0.5)
+                print()
+                slow_print(
+                    "  For a moment, nothing. Then — from somewhere beyond the "
+                    "wallpaper, beyond the plaster, beyond the house itself — "
+                    "a voice whispers back. Not Elias. Not Margaret. Someone "
+                    "else entirely. Someone who built these walls from words.",
+                    delay=0.025,
+                )
+                print()
+                print('  "This story was crafted by Michael B. Parks.')
+                print('  Visit him at https://michaelbparks.com')
+                print()
+                print('  Thank you for listening."')
+                print()
+                print_separator("·")
                 acted = False
             else:
                 unknowns = [

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>The Forgotten One by MB Parks</title>
+<title>The Forgotten One</title>
 <meta name="theme-color" content="#0a0908">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
@@ -194,6 +194,7 @@ class G{
           case'map':this.doMap();acted=false;break;
           case'help':this.doHelp();acted=false;break;
           case'quit':this.t.pl('\n  You head for the front door. It won\'t budge.\n  Maybe there\'s more to find.');acted=false;break;
+          case'whisper':this.doWhisper();acted=false;break;
           default:this.t.pl('\n  '+pick(['You\'re not sure what you mean. Try HELP.','That doesn\'t make sense. Try HELP.','You pause, confused. Try HELP.']));acted=false}
         if(this.go)break;
         if(acted){const ev=this.td();if(ev){const con=await this.hde(ev);if(con){await this.t.w(2000);this.t.pl('');await this.t.sp('  You open your eyes.',50);await this.t.w(2000);this.rs();wc=true;break}}}}
@@ -203,12 +204,12 @@ class G{
   async title(){this.t.cl();this.t.pl('');
     this.t.pl('    ╔══════════════════════════════════════════════════╗','ta');
     this.t.pl('    ║                                                  ║','ta');
-    this.t.pl('    ║       T H E   F O R G O T T E N   O N E          ║','ta');
+    this.t.pl('    ║       T H E   F O R G O T T E N   O N E         ║','ta');
     this.t.pl('    ║                                                  ║','ta');
-    this.t.pl('    ║      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░       ║','ta');
+    this.t.pl('    ║      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░        ║','ta');
     this.t.pl('    ║      ░ A game of memory, loss, and truth ░       ║','ta');
-    this.t.pl('    ║      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░       ║','ta');
-    this.t.pl('    ║                    M.B. Parks                    ║','ta');
+    this.t.pl('    ║      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░        ║','ta');
+    this.t.pl('    ║                                                  ║','ta');
     this.t.pl('    ╚══════════════════════════════════════════════════╝','ta');
     this.t.pl('');this.t.pl('                  Press ENTER to begin.','ts');this.t.pl('');
     await this.t.gi(true);this.t.cl()}
@@ -281,6 +282,18 @@ class G{
     for(const id of this.ids){const rm=this.rooms[id];if(!rm.fv||id===this.cr){const h=id===this.cr?' ◄ you are here':'';
       const uc=rm.items.filter(k=>!this.hi(k));const n=uc.length?' ['+uc.length+']':'';const f=rm.floor==='u'?'▲':'▼';
       this.t.pl('    '+f+' '+rm.name+n+h)}}this.t.pl('');this.t.pl('  ▲ upper  ▼ ground');this.t.ps()}
+
+  doWhisper(){this.t.pl('');this.t.ps('·');this.t.pl('');
+    this.t.pl('  You lean close to the wall and whisper.');this.t.pl('');
+    this.t.pl('  For a moment, nothing. Then — from somewhere beyond the');
+    this.t.pl('  wallpaper, beyond the plaster, beyond the house itself —');
+    this.t.pl('  a voice whispers back. Not Elias. Not Margaret. Someone');
+    this.t.pl('  else entirely. Someone who built these walls from words.');this.t.pl('');
+    this.t.pl('  "This story was crafted by Michael B. Parks.');
+    const link=document.createElement('span');link.innerHTML='\n  Visit him at <a href="https://michaelbparks.com" target="_blank" rel="noopener" style="color:#d4a55a;text-decoration:underline;cursor:pointer">michaelbparks.com</a>\n';
+    this.t.o.appendChild(link);
+    this.t.pl('');this.t.pl('  Thank you for listening."');
+    this.t.pl('');this.t.ps('·')}
 
   async hde(ev){
     if(ev==='arr'){this.t.se('dk');this.t.pl('');this.t.ps('░');await this.t.sp('\n  '+pick(DK_ARR),20,'dt');this.t.pl('');
@@ -362,7 +375,8 @@ class G{
       examine:'examine',x:'examine',inspect:'examine',study:'examine',read:'examine',
       take:'take',get:'take',grab:'take',pick:'take',hum:'hum',sing:'hum',lullaby:'hum',
       inventory:'inventory',inv:'inventory',i:'inventory',memories:'memories',memory:'memories',remember:'memories',
-      help:'help','?':'help',commands:'help',map:'map',m:'map',quit:'quit',exit:'quit',q:'quit'};
+      help:'help','?':'help',commands:'help',map:'map',m:'map',quit:'quit',exit:'quit',q:'quit',
+      whisper:'whisper',credits:'whisper',about:'whisper',author:'whisper'};
     return[al[c]||c,a]}
 }
 
