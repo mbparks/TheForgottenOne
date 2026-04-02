@@ -134,7 +134,7 @@ The game is a single Python file with no dependencies. Key systems:
 
 ## License
 
-GPL-3.0 license
+MIT
 
 ---
 
