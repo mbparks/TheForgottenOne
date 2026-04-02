@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════╗
-║              T H E   F O R G O T T E N   O N E              ║
+║              T H E   F O R G O T T E N   O N E               ║
 ║         A Text Adventure of Memory and Discovery             ║
+║                        M.B. Parks                            ║
 ╚══════════════════════════════════════════════════════════════╝
 
 Dynamically generated layouts — no two games are the same.
@@ -1048,12 +1049,12 @@ def show_title():
     title = """
     ╔══════════════════════════════════════════════════════════╗
     ║                                                          ║
-    ║           T H E   F O R G O T T E N   O N E             ║
+    ║           T H E   F O R G O T T E N   O N E              ║
     ║                                                          ║
-    ║          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░             ║
+    ║          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░          ║
     ║          ░  A game of memory, loss, and truth ░          ║
-    ║          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░             ║
-    ║                                                          ║
+    ║          ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░          ║
+    ║                       M.B. Parks                         ║
     ╚══════════════════════════════════════════════════════════╝
     """
     print(title)
