@@ -3,7 +3,7 @@
 ╔══════════════════════════════════════════════════════════════╗
 ║              T H E   F O R G O T T E N   O N E               ║
 ║         A Text Adventure of Memory and Discovery             ║
-║                       ~ M.B. Parks ~                         ║
+║                      ~ M.B. Parks ~                          ║
 ╚══════════════════════════════════════════════════════════════╝
 
 Dynamically generated layouts — no two games are the same.
@@ -459,6 +459,13 @@ def desc_room(s):
     if rm["first_visit"]:
         print(random.choice(SND_DRONE_G if rm["floor"] == "ground" else SND_DRONE_U))
     rm["first_visit"] = False
+    # Study window glow when player can leave but hasn't found everything
+    if s.cr == "study" and s.mc >= 5 and not s.hm("fathers_letter"):
+        print()
+        print("  The curtains over the study window are parted. Beyond the glass,")
+        print("  warm golden light pours in — not the flat grey of before. October")
+        print("  light. You could STEP THROUGH. But there's still something in")
+        print("  this house you haven't found.")
 
 def do_mv(s, d):
     d = DSH.get(d, d)
@@ -501,7 +508,14 @@ def do_ex(s, txt):
         if s.mc == 4: dramatic_pause(0.8); print(); slow_print("  A mother, a career, a wife, a son. What happened to Elias Wren?", delay=0.025)
         if s.mc == 5:
             dramatic_pause(0.8); print()
-            slow_print("  Not all memories are kind. Some cut. But they're yours — every one of them. The greenhouse AND the closed door. The wedding AND the silence. You can't choose which parts of yourself to remember.", delay=0.025)
+            if s.hm("fathers_letter"):
+                slow_print("  Not all memories are kind. Some cut. But they're yours — every one. The greenhouse AND the closed door. The wedding AND the silence. You can't choose which parts of yourself to remember.", delay=0.025)
+            else:
+                slow_print("  Five memories. Almost whole. But there's a heaviness in the house you haven't touched. Something locked away — deliberately, by someone who knew it would hurt.", delay=0.025)
+                dramatic_pause(0.8); print()
+                slow_print("  You can feel it pulling at you from somewhere in the house.", delay=0.025)
+                dramatic_pause(0.5); print()
+                slow_print("  The light beyond the study window has changed. It's warmer. Golden. You could step through and leave this place. But you'd be leaving something behind.", delay=0.025)
         if s.mc == s.ta: finale(s)
     elif it.get("is_memory"): print("\n  Memory vivid already.")
     else: print("\n  No memories stir. But it feels important.")
@@ -603,6 +617,72 @@ def do_whisper():
     print(); print('  "This story was crafted by Michael B. Parks.')
     print("  Visit him at https://michaelbparks.com"); print()
     print('  Thank you for listening."'); print(); print_separator("·")
+
+def finale_lesser(s):
+    """The incomplete ending — player leaves without confronting the father."""
+    dramatic_pause(2.0); clear_screen(); print(); print_separator("═"); print()
+
+    slow_print("  You step toward the study window. The golden light is warm on your face — or where your face should be.", delay=0.03)
+    dramatic_pause(1.0); print()
+    slow_print("  Margaret's letter. You think of it one more time.", delay=0.03)
+    dramatic_pause(0.8)
+    slow_print('  "I hope wherever you are, you can hear me."', delay=0.035)
+    dramatic_pause(1.5); print()
+    slow_print("  You know where you are now. You know what happened. The watch. The desk. 11:47.", delay=0.025)
+    dramatic_pause(1.0)
+    slow_print("  You know you died in this house.", delay=0.04)
+    dramatic_pause(2.0)
+
+    print(); print_separator("✦"); print()
+    for line in ["  Your name was Elias Wren.", "  Professor of botany at Ashworth University.",
+                 "  You married Margaret on an October evening in 1911.", "  Your son Thomas had your eyes and her laugh."]:
+        slow_print(line, delay=0.04); dramatic_pause(0.6)
+    dramatic_pause(1.0)
+
+    print(); print_separator("✦"); print()
+
+    slow_print("  The window is open. The October garden is there — lanterns in the trees, maples on fire.", delay=0.025)
+    dramatic_pause(1.0); print()
+    slow_print('  "There you are," Margaret says. "We\'ve been waiting."', delay=0.035)
+    dramatic_pause(1.0)
+    slow_print('  Thomas waves. "Come ON, Papa!"', delay=0.035)
+    dramatic_pause(1.5); print()
+    slow_print("  You step through the window. The October air is warm. Wood smoke and apples.", delay=0.025)
+    dramatic_pause(1.0); print()
+
+    slow_print("  But as you cross, you feel it — a weight in your chest that isn't the weak heart. Something you left behind. Something locked in an iron box that you never opened.", delay=0.025)
+    dramatic_pause(1.5); print()
+    slow_print("  You don't know what's in it. You chose not to know.", delay=0.03)
+    dramatic_pause(1.0)
+    slow_print("  Maybe that's all right. Maybe some boxes stay closed.", delay=0.03)
+    dramatic_pause(1.0)
+    slow_print("  Or maybe you'll wonder. Forever.", delay=0.04)
+    dramatic_pause(2.0)
+
+    print(); print_separator(); print()
+    slow_print("  The house stands quiet. The pocket watch reads 11:47.", delay=0.025); dramatic_pause(0.8); print()
+    slow_print("  The chair in the study is pushed neatly in.", delay=0.025); dramatic_pause(0.5)
+    slow_print("  The strongbox sits in the corner. Closed. Locked. Keeping its secret.", delay=0.025); dramatic_pause(1.0); print()
+    slow_print("  The front door swings open. Autumn light floods the foyer.", delay=0.025); dramatic_pause(0.8)
+    slow_print("  The house breathes out. Almost still. Almost.", delay=0.03)
+
+    print(); print(); print_separator("═"); print()
+    vi = len([r for r in s.rooms.values() if not r["first_visit"]])
+    ti = sum(len(r["items"]) for r in s.rooms.values())
+    print("              T H E   F O R G O T T E N   O N E"); print()
+    print(f"                 Memories: {s.mc}/{s.ta}")
+    print(f"                 Items: {len(s.inv)}/{ti}")
+    print(f"                 Rooms: {vi}/{len(s.rooms)}")
+    print(f"                 Moves: {s.tm}")
+    if s.rc > 0: print(f"                 Times consumed: {s.rc}")
+    print(f"                 The strongbox: Unopened")
+    print()
+    print("          Elias found his way home.")
+    print("          But he left something behind.")
+    print()
+    print("          There is another ending.")
+    print()
+    print_separator("═"); print(); s.go = True
 
 def hde(s, ev):
     if ev == "arr":
@@ -725,6 +805,7 @@ def pc(raw):
         "examine":"examine","x":"examine","inspect":"examine","study":"examine","read":"examine",
         "take":"take","get":"take","grab":"take","pick":"take","hum":"hum","sing":"hum","lullaby":"hum",
         "open":"open","unlock":"open","use":"open",
+        "step":"step","leave":"step","through":"step","cross":"step",
         "inventory":"inventory","inv":"inventory","i":"inventory",
         "memories":"memories","memory":"memories","remember":"memories",
         "help":"help","?":"help","map":"map","m":"map","quit":"quit","exit":"quit","q":"quit",
@@ -736,8 +817,8 @@ def main():
     print("""
     ╔══════════════════════════════════════════════════════════╗
     ║            T H E   F O R G O T T E N   O N E             ║
-    ║            A game of memory, loss, and truth             ║
-    ║                      M.B. Parks                          ║
+    ║          ░ A game of memory, loss, and truth ░           ║
+    ║          ░            M.B. Parks             ░           ║
     ╚══════════════════════════════════════════════════════════╝
     """)
     input("  Press ENTER to begin...\n")
@@ -769,6 +850,16 @@ def main():
                 else: print("\n  Take what?"); acted = False
             elif cmd == "hum": do_hum(s)
             elif cmd == "open": do_open_safe(s)
+            elif cmd == "step":
+                if s.cr == "study" and s.mc >= 5 and not s.hm("fathers_letter"):
+                    finale_lesser(s)
+                elif s.cr == "study" and s.hm("fathers_letter"):
+                    print("\n  The window is open. But you've already found what you needed.")
+                    print("  The house will let you know when it's time.")
+                    acted = False
+                else:
+                    print("\n  Step through what? There's nothing to step through here.")
+                    acted = False
             elif cmd == "inventory": do_inv(s); acted = False
             elif cmd == "memories": do_mem(s); acted = False
             elif cmd == "map": do_map(s); acted = False

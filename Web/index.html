@@ -48,11 +48,9 @@ a{color:#d4a55a;text-decoration:underline;cursor:pointer}
 <div id="input-area"><span class="pr">›</span><input type="text" id="ci" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="type a command..." autofocus></div>
 </div>
 <script>
-// ═════════════════════════════════════════════════════════════
-//            T H E   F O R G O T T E N   O N E 
-// A narrative exploration game about memory, loss, and identity.
-//                       M.B. Parks
-// ═════════════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════════
+//  T H E   F O R G O T T E N   O N E — M.B. Parks
+// ═══════════════════════════════════════════════════════════
 
 const OPP={north:'south',south:'north',east:'west',west:'east'};
 const DSH={n:'north',s:'south',e:'east',w:'west'};
@@ -494,6 +492,7 @@ class Game{
           case'take':if(arg)this.doTk(arg);else{this.t.pl('\n  Take what?');acted=false}break;
           case'hum':await this.doHum();break;
           case'open':await this.doOpenSafe();break;
+          case'step':await this.doStepThrough();if(this.go)acted=false;break;
           case'inventory':this.doInv();acted=false;break;
           case'memories':this.doMem();acted=false;break;
           case'map':this.doMap();acted=false;break;
@@ -511,12 +510,12 @@ class Game{
   async title(){this.t.cl();this.t.pl('');
     this.t.pl('    ╔══════════════════════════════════════════════════╗','ta');
     this.t.pl('    ║                                                  ║','ta');
-    this.t.pl('    ║       T H E   F O R G O T T E N   O N E         ║','ta');
+    this.t.pl('    ║       T H E   F O R G O T T E N   O N E          ║','ta');
     this.t.pl('    ║                                                  ║','ta');
-    this.t.pl('    ║      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░        ║','ta');
+    this.t.pl('    ║      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░       ║','ta');
     this.t.pl('    ║      ░ A game of memory, loss, and truth ░       ║','ta');
-    this.t.pl('    ║      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░        ║','ta');
-    this.t.pl('    ║                                                  ║','ta');
+    this.t.pl('    ║      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░       ║','ta');
+    this.t.pl('    ║                 M.B. Parks                       ║','ta');
     this.t.pl('    ╚══════════════════════════════════════════════════╝','ta');
     this.t.pl('');this.t.pl('                  Press ENTER to begin.','ts');this.t.pl('');
     await this.t.gi(true);this.snd.init();this.t.cl()}
@@ -584,6 +583,12 @@ class Game{
       if(Math.random()<0.1){this.t.pl('');this.t.pl('  '+this.getClockAmbient(),'clock')}
     }
     rm.fv=false;
+    // Study window glow when player can leave but hasn't found everything
+    if(this.cr==='study'&&this.mc>=5&&!this.hm('fathers_letter')){this.t.pl('');
+      this.t.pl('  The curtains over the study window are parted. Beyond the glass,');
+      this.t.pl('  warm golden light pours in — not the flat grey of before. October');
+      this.t.pl('  light. You could STEP THROUGH. But there\'s still something in');
+      this.t.pl('  this house you haven\'t found.')}
   }
 
   // ─────────── MOVEMENT ─────────────────────────
@@ -616,7 +621,16 @@ class Game{
       this.t.pl('');this.t.ps('✦');
       if(this.mc===3){await this.t.w(600);this.t.pl('');await this.t.sp('  Elias Wren. Professor. Husband. You have a name. The house is YOURS. So why can\'t you remember leaving?',20)}
       if(this.mc===4){await this.t.w(600);this.t.pl('');await this.t.sp('  A mother, a career, a wife, a son. Someone loved. But: what happened to Elias Wren?',20)}
-      if(this.mc===5){await this.t.w(600);this.t.pl('');await this.t.sp('  Not all memories are kind. Some cut. But they\'re yours — every one. The greenhouse AND the closed door. The wedding AND the silence. You can\'t choose which parts of yourself to remember.',20)}
+      if(this.mc===5){await this.t.w(600);this.t.pl('');
+        if(this.hm('fathers_letter')){
+          await this.t.sp('  Not all memories are kind. Some cut. But they\'re yours — every one. The greenhouse AND the closed door. The wedding AND the silence. You can\'t choose which parts of yourself to remember.',20)
+        }else{
+          await this.t.sp('  Five memories. Almost whole. But there\'s a heaviness in the house you haven\'t touched. Something locked away — deliberately, by someone who knew it would hurt.',20);
+          await this.t.w(800);this.t.pl('');
+          await this.t.sp('  You can feel it pulling at you from somewhere in the house.',20);
+          await this.t.w(500);this.t.pl('');
+          await this.t.sp('  The light beyond the study window has changed. It\'s warmer. Golden. You could STEP THROUGH and leave this place. But you\'d be leaving something behind.',20);
+        }}
       await this.t.w(500);this.t.se(null);if(this.mc===this.ta)await this.finale();
     }else if(it.im){this.t.pl('\n  The memory is vivid already.')}
     else{this.t.pl('');this.t.pl('  No memories stir, but something about it','fl');this.t.pl('  feels important. You hold onto it.','fl')}}
@@ -637,6 +651,56 @@ class Game{
     this.t.ps('·');
     this.safeOpened=true;this.rooms[this.safeRoom].items.push('fathers_letter');
     this.t.pl('\n  The letter is here for the taking. If you want it.')}
+
+  async doStepThrough(){
+    if(this.cr==='study'&&this.mc>=5&&!this.hm('fathers_letter')){await this.finaleLesser()}
+    else if(this.cr==='study'&&this.hm('fathers_letter')){
+      this.t.pl('\n  The window is open. But you\'ve already found what you needed.');this.t.pl('  The house will let you know when it\'s time.')}
+    else this.t.pl('\n  Step through what? There\'s nothing to step through here.')}
+
+  async finaleLesser(){
+    this.t.di();this.snd.stopDrone();this.snd.stopRumble();
+    await this.t.w(2000);this.t.cl();this.t.pl('');this.t.ps('═');this.t.pl('');
+    await this.t.sp('  You step toward the study window. The golden light is warm on your face — or where your face should be.',25,'ft');await this.t.w(1000);this.t.pl('');
+    await this.t.sp('  Margaret\'s letter. You think of it one more time.',25,'ft');await this.t.w(800);
+    await this.t.sp('  "I hope wherever you are, you can hear me."',30,'ft');await this.t.w(1500);this.t.pl('');
+    await this.t.sp('  You know where you are now. You know what happened. The watch. The desk. 11:47.',25,'ft');await this.t.w(1000);
+    await this.t.sp('  You know you died in this house.',30,'fr');await this.t.w(2000);
+    this.t.pl('');this.t.ps('✦');this.t.se('mem');this.t.pl('');
+    await this.t.sp('  Your name was Elias Wren.',40,'fr');await this.t.w(600);
+    await this.t.sp('  You were a professor of botany at Ashworth University.',35,'fr');await this.t.w(600);
+    await this.t.sp('  You married Margaret on an October evening in 1911.',35,'fr');await this.t.w(600);
+    await this.t.sp('  Your son Thomas had your eyes and her laugh.',35,'fr');await this.t.w(1000);
+    this.t.pl('');this.t.ps('✦');this.t.pl('');
+    this.snd.playFinale();
+    await this.t.sp('  The window is open. The October garden is there — lanterns in the trees, maples on fire.',25,'fc');await this.t.w(1000);this.t.pl('');
+    await this.t.sp('  "There you are," Margaret says. "We\'ve been waiting."',35,'fc');await this.t.w(1000);
+    await this.t.sp('  Thomas waves. "Come ON, Papa!"',35,'fc');await this.t.w(1500);this.t.pl('');
+    await this.t.sp('  You step through the window. The October air is warm. Wood smoke and apples.',25,'fc');await this.t.w(1000);this.t.pl('');
+    await this.t.sp('  But as you cross, you feel it — a weight in your chest that isn\'t the weak heart. Something you left behind. Something locked in an iron box that you never opened.',25,'ft');await this.t.w(1500);this.t.pl('');
+    await this.t.sp('  You don\'t know what\'s in it. You chose not to know.',30,'ft');await this.t.w(1000);
+    await this.t.sp('  Maybe that\'s all right. Maybe some boxes stay closed.',30,'ft');await this.t.w(1000);
+    await this.t.sp('  Or maybe you\'ll wonder. Forever.',35,'ft');await this.t.w(2000);
+    this.t.se(null);
+    this.t.pl('');this.t.ps();this.t.pl('');
+    await this.t.sp('  The house stands quiet. The pocket watch reads 11:47.',25,'ft');await this.t.w(800);this.t.pl('');
+    await this.t.sp('  The chair in the study is pushed neatly in.',25,'ft');await this.t.w(500);
+    await this.t.sp('  The strongbox sits in the corner. Closed. Locked. Keeping its secret.',25,'ft');await this.t.w(1000);this.t.pl('');
+    await this.t.sp('  The front door swings open. Autumn light floods the foyer.',25,'fc');await this.t.w(800);
+    await this.t.sp('  The house breathes out. Almost still. Almost.',30,'fc');
+    await this.t.w(2000);this.t.pl('');this.t.pl('');this.t.ps('═');this.t.pl('');
+    const vi=Object.values(this.rooms).filter(r=>!r.fv).length;
+    const ti=Object.values(this.rooms).reduce((s,r)=>s+r.items.length,0);
+    this.t.pl('          T H E   F O R G O T T E N   O N E','fi');this.t.pl('');
+    this.t.pl('             Memories: '+this.mc+'/'+this.ta,'fs');
+    this.t.pl('             Items: '+this.inv.length+'/'+ti,'fs');
+    this.t.pl('             Rooms: '+vi+'/'+Object.keys(this.rooms).length,'fs');
+    this.t.pl('             Moves: '+this.totalMoves,'fs');
+    if(this.rc>0)this.t.pl('             Times consumed: '+this.rc,'fs');
+    this.t.pl('             The strongbox: Unopened','fs');
+    this.t.pl('');this.t.pl('      Elias found his way home.','fk');this.t.pl('      But he left something behind.','fk');
+    this.t.pl('');this.t.pl('      There is another ending.','fi');
+    this.t.pl('');this.t.ps('═');this.t.pl('');this.go=true}
 
   async doHum(){if(!this.hl()){this.t.pl('\n  '+pick(DK_NO));return}
     if(this.iid()){this.t.pl('');this.snd.playBanish();await this.t.sp('  '+pick(DK_BAN),20,'db');
@@ -816,6 +880,7 @@ class Game{
       examine:'examine',x:'examine',inspect:'examine',study:'examine',read:'examine',
       take:'take',get:'take',grab:'take',pick:'take',hum:'hum',sing:'hum',lullaby:'hum',
       open:'open',unlock:'open',use:'open',
+      step:'step',leave:'step',through:'step',cross:'step',
       inventory:'inventory',inv:'inventory',i:'inventory',memories:'memories',memory:'memories',remember:'memories',
       help:'help','?':'help',map:'map',m:'map',quit:'quit',exit:'quit',q:'quit',
       whisper:'whisper',credits:'whisper',about:'whisper',author:'whisper'};
