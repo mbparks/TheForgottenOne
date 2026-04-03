@@ -427,9 +427,11 @@ class Game{
     if(this.iid()){if(this.et===0){this.et=this.maxEt;return'arr'}this.et--;return this.et<=0?'con':'esc'}
     this.et=0;return this.idn()?'near':null}
 
-  fi(txt){txt=txt.toLowerCase().trim();if(this.ai[txt])return txt;
-    for(const[k,it]of Object.entries(this.ai))if(it.name.toLowerCase().includes(txt)||k.includes(txt))return k;
-    for(const[k,it]of Object.entries(this.ai))for(const w of txt.split(' '))if(w.length>2&&(it.name.toLowerCase().includes(w)||k===w))return k;return null}
+  fi(txt,prefer){txt=txt.toLowerCase().trim();
+    const pools=prefer?[Object.fromEntries(prefer.filter(k=>this.ai[k]).map(k=>[k,this.ai[k]])),this.ai]:[this.ai];
+    for(const pool of pools){if(pool[txt])return txt;
+      for(const[k,it]of Object.entries(pool))if(it.name.toLowerCase().includes(txt)||k.includes(txt))return k;
+      for(const[k,it]of Object.entries(pool))for(const w of txt.split(' '))if(w.length>2&&(it.name.toLowerCase().includes(w)||k===w))return k}return null}
 
   // ─── Unreliable text: corrupt strings near darkness ───
   corrupt(text,level){
@@ -515,7 +517,7 @@ class Game{
     this.t.pl('    ║      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░       ║','ta');
     this.t.pl('    ║      ░ A game of memory, loss, and truth ░       ║','ta');
     this.t.pl('    ║      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░       ║','ta');
-    this.t.pl('    ║                 M.B. Parks                       ║','ta');
+    this.t.pl('    ║                   M.B. Parks                     ║','ta');
     this.t.pl('    ╚══════════════════════════════════════════════════╝','ta');
     this.t.pl('');this.t.pl('                  Press ENTER to begin.','ts');this.t.pl('');
     await this.t.gi(true);this.snd.init();this.t.cl()}
@@ -603,7 +605,7 @@ class Game{
 
   // ─────────── ITEMS ────────────────────────────
 
-  doTk(txt){const k=this.fi(txt);const rm=this.rooms[this.cr];
+  doTk(txt){const rm=this.rooms[this.cr];const k=this.fi(txt,rm.items);
     if(!k){this.t.pl('\n  Nothing by that name.');return}if(!rm.items.includes(k)){this.t.pl('\n  That isn\'t here.');return}
     if(this.hi(k)){this.t.pl('\n  Already have it.');return}
     this.inv.push(k);this.t.pl('\n  You pick up the '+this.ai[k].name+'.');this.t.pl('  Acquired: '+this.ai[k].name,'acq')}
@@ -611,7 +613,7 @@ class Game{
   async doEx(txt){
     // Check for safe/strongbox examination
     if(['safe','strongbox','box','lockbox'].includes(txt.toLowerCase().trim())){await this.doOpenSafe();return}
-    const k=this.fi(txt);if(!k){this.t.pl('\n  Examine what?');return}
+    const k=this.fi(txt,this.inv);if(!k){this.t.pl('\n  Examine what?');return}
     if(!this.hi(k)){const rm=this.rooms[this.cr];if(rm.items.includes(k))this.t.pl('\n  Pick it up first. Try: take '+k);else this.t.pl('\n  You don\'t have that.');return}
     const it=this.ai[k];this.t.pl('');this.t.ps('·');this.t.pl('  '+it.ex);
     if(it.im&&!this.hm(k)){this.mu.push(k);this.t.se('mem');this.snd.playMemoryChord();await this.t.w(800);

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════╗
-║              T H E   F O R G O T T E N   O N E               ║
-║         A Text Adventure of Memory and Discovery             ║
-║                      ~ M.B. Parks ~                          ║
+║               T H E   F O R G O T T E N   O N E              ║
+║          A Text Adventure of Memory and Discovery            ║
+║                       ~ M.B. Parks ~                         ║
 ╚══════════════════════════════════════════════════════════════╝
 
 Dynamically generated layouts — no two games are the same.
@@ -406,14 +406,24 @@ class GS:
             self.et -= 1; return "con" if self.et <= 0 else "esc"
         self.et = 0; return "near" if self.idn() else None
 
-def fi(txt, ai):
+def fi(txt, ai, prefer=None):
+    """Find item key from text. If prefer list given, check those keys first for all match types."""
     txt = txt.lower().strip()
-    if txt in ai: return txt
-    for k, it in ai.items():
-        if txt in it["name"].lower() or txt in k: return k
-    for k, it in ai.items():
-        for w in txt.split():
-            if len(w) > 2 and (w in it["name"].lower() or w == k): return k
+    # Build ordered search: priority pool first, then everything else
+    if prefer:
+        pools = [{k: ai[k] for k in prefer if k in ai}, ai]
+    else:
+        pools = [ai]
+    for pool in pools:
+        # Exact key match
+        if txt in pool: return txt
+        # Substring match on name or key
+        for k, it in pool.items():
+            if txt in it["name"].lower() or txt in k: return k
+        # Word match
+        for k, it in pool.items():
+            for w in txt.split():
+                if len(w) > 2 and (w in it["name"].lower() or w == k): return k
     return None
 
 # ────────────────────── ENGINE ───────────────────────────────────
@@ -478,7 +488,8 @@ def do_mv(s, d):
     desc_room(s); return True
 
 def do_tk(s, txt):
-    k = fi(txt, s.ai); rm = s.rooms[s.cr]
+    rm = s.rooms[s.cr]
+    k = fi(txt, s.ai, prefer=rm["items"])
     if not k: print("\n  Nothing by that name."); return
     if k not in rm["items"]: print("\n  Not here."); return
     if s.hi(k): print("\n  Already have it."); return
@@ -488,7 +499,7 @@ def do_ex(s, txt):
     # Check for safe/strongbox examination
     if txt.lower().strip() in ("safe", "strongbox", "box", "lockbox"):
         do_open_safe(s); return
-    k = fi(txt, s.ai)
+    k = fi(txt, s.ai, prefer=s.inv)
     if not k: print("\n  Examine what?"); return
     if not s.hi(k):
         if k in s.rooms[s.cr]["items"]: print(f"\n  Pick it up first. Try: take {k}")
@@ -816,9 +827,9 @@ def main():
     clear_screen()
     print("""
     ╔══════════════════════════════════════════════════════════╗
-    ║            T H E   F O R G O T T E N   O N E             ║
-    ║          ░ A game of memory, loss, and truth ░           ║
-    ║          ░            M.B. Parks             ░           ║
+    ║           T H E   F O R G O T T E N   O N E              ║
+    ║           ░ A game of memory, loss, and truth ░          ║
+    ║           ░            M.B. Parks             ░          ║
     ╚══════════════════════════════════════════════════════════╝
     """)
     input("  Press ENTER to begin...\n")
