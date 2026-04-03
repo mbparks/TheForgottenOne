@@ -2,6 +2,8 @@
 
 **A text adventure of memory, loss, and truth.**
 
+Play here:  https://mbparks.com/loss
+
 You wake in an old house. You don't know your name. You don't know how you got here. But the rooms feel familiar — not like a stranger's home, but like your own after a long trip away.
 
 Somewhere in the dust and silence, there are objects that hold pieces of who you used to be. A locket with a photograph. A journal in your handwriting. A pocket watch that stopped ticking a long time ago. Each one unlocks a fragment of a life you've forgotten — a mother, a career, a marriage, a child.
