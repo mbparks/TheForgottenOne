@@ -3,22 +3,21 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>The Forgotten One: A Story of Memory, Loss, and Truth by M.B. Parks</title>
+<title>The Forgotten One</title>
 <meta name="theme-color" content="#0a0908">
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden;background:#0a0908;color:#c9b99a;font-family:'IBM Plex Mono','Courier New',monospace;font-size:15px;line-height:1.6;font-weight:300}
 #crt{position:fixed;inset:0;display:flex;flex-direction:column}
 #crt::before{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.12) 2px,rgba(0,0,0,.12) 4px);pointer-events:none;z-index:100}
-#crt::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.5) 100%);pointer-events:none;z-index:101}
+#crt::after{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at center,transparent 60%,rgba(0,0,0,.5));pointer-events:none;z-index:101}
 #terminal{flex:1;overflow-y:auto;padding:24px 32px 8px;scrollbar-width:thin;scrollbar-color:#3a3428 transparent}
 #terminal::-webkit-scrollbar{width:6px}
 #terminal::-webkit-scrollbar-thumb{background:#3a3428;border-radius:3px}
 #output{max-width:680px;margin:0 auto;white-space:pre-wrap;word-wrap:break-word}
 #input-area{max-width:680px;margin:0 auto;width:100%;padding:8px 32px 24px;display:flex;align-items:center;gap:8px}
-#input-area .p{color:#d4a55a;font-weight:500;font-size:16px;user-select:none;flex-shrink:0}
+.pr{color:#d4a55a;font-weight:500;font-size:16px;user-select:none;flex-shrink:0}
 #ci{flex:1;background:0 0;border:none;outline:none;color:#e8d5b5;font-family:inherit;font-size:15px;font-weight:400;line-height:1.6;caret-color:#d4a55a}
 #ci::placeholder{color:#7a6f5d;opacity:.5}
 #ci:disabled{opacity:.3}
@@ -30,6 +29,12 @@ html,body{height:100%;overflow:hidden;background:#0a0908;color:#c9b99a;font-fami
 .fc{color:#e8c170}.fs{color:#7a6f5d;text-align:center}.fi{color:#d4a55a;text-align:center;font-weight:500}
 .fk{color:#7a6f5d;text-align:center;font-style:italic}.ta{color:#d4a55a;text-align:center}
 .ts{color:#7a6f5d;text-align:center}.hc{color:#d4a55a}.ht{color:#7a6f5d}
+.decay{color:#5a4f3d;font-style:italic}
+.glitch{color:#4a6a8a;font-style:italic}
+.trace{color:#8a7a5a;font-style:italic}
+.clock{color:#7a6f5d}
+.twist-input{color:#e8d5b5;font-weight:400}
+a{color:#d4a55a;text-decoration:underline;cursor:pointer}
 @keyframes dkFlick{0%{opacity:1}10%{opacity:.85}20%{opacity:1}40%{opacity:.9}50%{opacity:1}70%{opacity:.88}80%{opacity:1}}
 @keyframes memPulse{0%{box-shadow:inset 0 0 60px rgba(232,193,112,0)}50%{box-shadow:inset 0 0 60px rgba(232,193,112,.06)}100%{box-shadow:inset 0 0 60px rgba(232,193,112,0)}}
 #crt.dk{animation:dkFlick 2s ease-in-out infinite;background:#050810}
@@ -40,68 +45,269 @@ html,body{height:100%;overflow:hidden;background:#0a0908;color:#c9b99a;font-fami
 <body>
 <div id="crt">
 <div id="terminal"><div id="output"></div></div>
-<div id="input-area"><span class="p">›</span><input type="text" id="ci" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="type a command..." autofocus></div>
+<div id="input-area"><span class="pr">›</span><input type="text" id="ci" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="type a command..." autofocus></div>
 </div>
 <script>
+// ═════════════════════════════════════════════════════════════
+//            T H E   F O R G O T T E N   O N E 
+// A narrative exploration game about memory, loss, and identity.
+//                       M.B. Parks
+// ═════════════════════════════════════════════════════════════
+
 const OPP={north:'south',south:'north',east:'west',west:'east'};
-const DS={n:'north',s:'south',e:'east',w:'west'};
+const DSH={n:'north',s:'south',e:'east',w:'west'};
 function pick(a){return a[Math.floor(Math.random()*a.length)]}
 function shuf(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[b[i],b[j]]=[b[j],b[i]]}return b}
 
+// ─────────────── PROCEDURAL AUDIO ENGINE ────────────────
+
+class Sound {
+  constructor(){this.ctx=null;this.master=null;this.drone=null;this.droneGain=null;this.rumble=null;this.rumbleGain=null;this.started=false}
+
+  init(){
+    if(this.started)return;
+    try{
+      this.ctx=new(window.AudioContext||window.webkitAudioContext)();
+      this.master=this.ctx.createGain();this.master.gain.value=0.3;this.master.connect(this.ctx.destination);
+      this.started=true;this.startDrone('ground');
+    }catch(e){/* audio not supported, game still works */}
+  }
+
+  startDrone(type){
+    if(!this.ctx)return;
+    this.stopDrone();
+    const now=this.ctx.currentTime;
+    // Base drone: low oscillator + filtered noise
+    const osc=this.ctx.createOscillator();
+    const gain=this.ctx.createGain();
+    const filter=this.ctx.createBiquadFilter();
+    filter.type='lowpass';
+    osc.type='sine';
+    gain.gain.value=0;
+    gain.gain.linearRampToValueAtTime(0.12,now+2);
+
+    if(type==='ground'){osc.frequency.value=55;filter.frequency.value=200}
+    else if(type==='upper'){osc.frequency.value=65;filter.frequency.value=250}
+    else if(type==='darkness'){osc.frequency.value=35;filter.frequency.value=120}
+    else{osc.frequency.value=50;filter.frequency.value=180}
+
+    osc.connect(filter);filter.connect(gain);gain.connect(this.master);
+    osc.start(now);
+    this.drone=osc;this.droneGain=gain;
+  }
+
+  stopDrone(){
+    if(!this.ctx||!this.drone)return;
+    try{this.droneGain.gain.linearRampToValueAtTime(0,this.ctx.currentTime+0.5);
+      const d=this.drone;setTimeout(()=>{try{d.stop()}catch(e){}},600);
+    }catch(e){}
+    this.drone=null;this.droneGain=null;
+  }
+
+  playNote(freq,duration,delay=0){
+    if(!this.ctx)return;
+    const now=this.ctx.currentTime+delay;
+    const osc=this.ctx.createOscillator();
+    const gain=this.ctx.createGain();
+    osc.type='sine';osc.frequency.value=freq;
+    // Music box: fast attack, medium decay
+    gain.gain.setValueAtTime(0,now);
+    gain.gain.linearRampToValueAtTime(0.25,now+0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001,now+duration);
+    osc.connect(gain);gain.connect(this.master);
+    osc.start(now);osc.stop(now+duration);
+  }
+
+  playLullaby(){
+    // E4-G4-B4 rising, B4-G4-E4 falling — music box timbre
+    const notes=[329.63,392.00,493.88,493.88,392.00,329.63];
+    notes.forEach((f,i)=>this.playNote(f,0.8,i*0.45));
+  }
+
+  playMemoryChord(){
+    if(!this.ctx)return;
+    // Warm C major: C4, E4, G4, C5 — slow swell
+    const freqs=[261.63,329.63,392.00,523.25];
+    const now=this.ctx.currentTime;
+    freqs.forEach(f=>{
+      const osc=this.ctx.createOscillator();const gain=this.ctx.createGain();
+      osc.type='sine';osc.frequency.value=f;
+      gain.gain.setValueAtTime(0,now);
+      gain.gain.linearRampToValueAtTime(0.1,now+1.5);
+      gain.gain.exponentialRampToValueAtTime(0.001,now+4);
+      osc.connect(gain);gain.connect(this.master);
+      osc.start(now);osc.stop(now+4.5);
+    });
+  }
+
+  playDarknessRumble(intensity){
+    if(!this.ctx)return;
+    this.stopRumble();
+    const now=this.ctx.currentTime;
+    const osc=this.ctx.createOscillator();const gain=this.ctx.createGain();
+    osc.type='sawtooth';
+    osc.frequency.value=25+intensity*5;
+    const vol=[0.04,0.08,0.15][Math.min(intensity,2)];
+    gain.gain.setValueAtTime(0,now);
+    gain.gain.linearRampToValueAtTime(vol,now+1);
+    const filt=this.ctx.createBiquadFilter();
+    filt.type='lowpass';filt.frequency.value=60+intensity*20;
+    osc.connect(filt);filt.connect(gain);gain.connect(this.master);
+    osc.start(now);
+    this.rumble=osc;this.rumbleGain=gain;
+  }
+
+  stopRumble(){
+    if(!this.ctx||!this.rumble)return;
+    try{this.rumbleGain.gain.linearRampToValueAtTime(0,this.ctx.currentTime+0.3);
+      const r=this.rumble;setTimeout(()=>{try{r.stop()}catch(e){}},400);
+    }catch(e){}
+    this.rumble=null;this.rumbleGain=null;
+  }
+
+  playBanish(){
+    if(!this.ctx)return;
+    this.stopRumble();
+    this.playLullaby();
+    // Add a warm resolution after the lullaby
+    setTimeout(()=>this.playMemoryChord(),3000);
+  }
+
+  playFinale(){
+    if(!this.ctx)return;
+    this.stopDrone();this.stopRumble();
+    // Silence... then a slow, warm major chord
+    setTimeout(()=>{
+      const freqs=[261.63,329.63,392.00,523.25,659.25];
+      const now=this.ctx.currentTime;
+      freqs.forEach((f,i)=>{
+        const osc=this.ctx.createOscillator();const gain=this.ctx.createGain();
+        osc.type='sine';osc.frequency.value=f;
+        gain.gain.setValueAtTime(0,now+i*0.3);
+        gain.gain.linearRampToValueAtTime(0.08,now+i*0.3+2);
+        gain.gain.linearRampToValueAtTime(0,now+i*0.3+8);
+        osc.connect(gain);gain.connect(this.master);
+        osc.start(now);osc.stop(now+i*0.3+9);
+      });
+    },2000);
+  }
+
+  setFloor(floor){if(this.started)this.startDrone(floor==='u'?'upper':'ground')}
+  enterDarkness(){if(this.started)this.startDrone('darkness')}
+  leaveDarkness(floor){if(this.started)this.startDrone(floor==='u'?'upper':'ground')}
+}
+
+// ─────────────── DATA: MEMORY ARTIFACTS ─────────────────
+
 const MEM={
-locket:{name:'Tarnished Silver Locket',rd:'A tarnished silver locket lies here, its chain coiled in a neat circle.',ex:'You open the locket. Inside is a faded photograph: a woman with kind eyes and a child on her lap. The photo is so old the edges have turned to velvet. But the woman\'s face — you know that face. A certainty rises in you like a tide.',mem:'The scent of lavender. A kitchen with copper pots and flour dusting every surface. A voice singing — not well, but with such tenderness it didn\'t matter. "My little sparrow," she called you. Mother. She was your MOTHER. The memory is warm and complete, like stepping into sunlight. But her name stays just out of reach.\n\nAnd the song. You can almost hum it. A lullaby — three notes rising, three notes falling. It sits at the edge of your mind like a candle in a window.',tag:'A mother\'s love — she called you her little sparrow.',im:true},
-journal:{name:'Water-Damaged Journal',rd:'A journal lies here, its pages bloated and wavy from old water damage.',ex:'Most of the ink has bled beyond reading, but you find a few surviving entries. The handwriting is meticulous, scientific. Dates from 1923. Detailed sketches of ferns and wildflowers with Latin names. You know this handwriting. It\'s yours.',mem:'A greenhouse. Rows of specimen trays. The earthy smell of peat moss and the scratch of a pen on paper. You were a botanist — a professor at a university. Students filed into your lecture hall every Tuesday and Thursday. You loved it. The thrill of classification, of pinning a name to something wild. Ashworth University. That was the place.',tag:'A vocation — you were a professor of botany at Ashworth.',im:true},
-pocketwatch:{name:'Stopped Pocket Watch',rd:'A pocket watch sits here, its crystal cracked in a starburst pattern. The hands have stopped.',ex:'It\'s a beautiful piece — silver case, Roman numerals, a delicate chain. The crystal is cracked but the face is legible. Stopped at 11:47. On the back, an engraving: "To E.W. — Until the end of time. — M."',mem:'An October evening. Lanterns hung in the garden, and the maples were the color of fire. She stood across from you in white, and you couldn\'t breathe for how beautiful she was. Margaret. Her name was MARGARET. After the ceremony, she pressed this watch into your hand. "So you\'ll always come home on time," she said, and everyone laughed. E.W. — Elias Wren. That was your name. YOUR name. Elias Wren.',tag:'A wedding — you married Margaret. Your name is Elias Wren.',im:true},
-toy_train:{name:'Painted Wooden Train',rd:'A small hand-painted wooden train sits here, its red paint chipped to reveal bare wood.',ex:'The train is light in your hand. The paint was applied by someone who cared more about the giving than the craft — the brushstrokes are uneven, clumsy. An adult made this for a child.',mem:'A boy. Brown curls, gap-toothed grin, your eyes in a smaller face. He sits on the rug pushing this very train in circles, making engine sounds. "Again, Papa! Make the whistle!" You whistle — two short, one long — and he falls over laughing. Thomas. Your son\'s name was Thomas. You carved this train for his third birthday from a piece of cherry wood.',tag:'A son — you had a boy named Thomas.',im:true},
-letter:{name:'Sealed Envelope',rd:'A cream-colored envelope lies here, sealed but never posted. The name on the front has faded.',ex:'The envelope is unsealed — the glue gave up long ago. Inside is a single page in a woman\'s handwriting, the ink a deep blue. It begins: "My dearest Elias."',mem:'Margaret\'s handwriting. You\'d know it anywhere now. "My dearest Elias — It has been a year and I still set your place at dinner. Thomas drew you a picture of a train. I put it on your desk. I\'ve kept the study exactly as you left it. I know you\'d scold me for the mess, but I can\'t bring myself to move a single paper. The house is so quiet without you. I hope wherever you are, you can hear me. I hope you know we\'re all right. — Your Margaret."\n\nYou read it twice. A year since what? Where did you go?',tag:'Margaret\'s letter — she missed you terribly.',im:true},
+locket:{name:'Tarnished Silver Locket',rd:'A tarnished silver locket lies here, its chain coiled in a neat circle.',ex:'You open the locket. Inside is a faded photograph: a woman with kind eyes and a child on her lap. The photo is so old the edges have turned to velvet. But the woman\'s face — you know that face. A certainty rises in you like a tide.',mem:'The scent of lavender. A kitchen with copper pots and flour dusting every surface. A voice singing — not well, but with such tenderness it didn\'t matter. "My little sparrow," she called you. Mother. She was your MOTHER. The memory is warm and complete, like stepping into sunlight. But her name stays just out of reach.\n\nAnd the song. You can almost hum it. A lullaby — three notes rising, three notes falling. It sits at the edge of your mind like a candle in a window.',tag:'A mother\'s love — she called you her little sparrow.',im:1},
+journal:{name:'Water-Damaged Journal',rd:'A journal lies here, its pages bloated and wavy from old water damage.',ex:'Most of the ink has bled beyond reading, but you find a few surviving entries. The handwriting is meticulous, scientific. Dates from 1923. Detailed sketches of ferns and wildflowers with Latin names. You know this handwriting. It\'s yours.',mem:'A greenhouse. Rows of specimen trays. The earthy smell of peat moss and the scratch of a pen on paper. You were a botanist — a professor at a university. Students filed into your lecture hall every Tuesday and Thursday. You loved it. The thrill of classification, of pinning a name to something wild. Ashworth University. That was the place.',tag:'A vocation — you were a professor of botany at Ashworth.',im:1},
+pocketwatch:{name:'Stopped Pocket Watch',rd:'A pocket watch sits here, its crystal cracked in a starburst pattern. The hands have stopped.',ex:'It\'s a beautiful piece — silver case, Roman numerals, a delicate chain. The crystal is cracked but the face is legible. Stopped at 11:47. On the back, an engraving: "To E.W. — Until the end of time. — M."',mem:'An October evening. Lanterns hung in the garden, and the maples were the color of fire. She stood across from you in white, and you couldn\'t breathe for how beautiful she was. Margaret. Her name was MARGARET. After the ceremony, she pressed this watch into your hand. "So you\'ll always come home on time," she said, and everyone laughed. E.W. — Elias Wren. That was your name. YOUR name. Elias Wren.',tag:'A wedding — you married Margaret. Your name is Elias Wren.',im:1},
+toy_train:{name:'Painted Wooden Train',rd:'A small hand-painted wooden train sits here, its red paint chipped to reveal bare wood.',ex:'The train is light in your hand. The paint was applied by someone who cared more about the giving than the craft. An adult made this for a child.',mem:'A boy. Brown curls, gap-toothed grin, your eyes in a smaller face. He sits on the rug pushing this very train in circles, making engine sounds. "Again, Papa! Make the whistle!" You whistle — two short, one long — and he falls over laughing. Thomas. Your son\'s name was Thomas. You carved this train for his third birthday from cherry wood.',tag:'A son — you had a boy named Thomas.',im:1},
+letter:{name:'Sealed Envelope',rd:'A cream-colored envelope lies here, sealed but never posted. The name on the front has faded.',ex:'The envelope is unsealed — the glue gave up long ago. Inside is a single page in a woman\'s handwriting, the ink a deep blue. It begins: "My dearest Elias."',mem:'Margaret\'s handwriting. You\'d know it anywhere now. "My dearest Elias — It has been a year and I still set your place at dinner. Thomas drew you a picture of a train. I put it on your desk. I\'ve kept the study exactly as you left it. I know you\'d scold me for the mess, but I can\'t bring myself to move a single paper. The house is so quiet without you. I hope wherever you are, you can hear me. I hope you know we\'re all right. — Your Margaret."\n\nYou read it twice. A year since what? Where did you go?',tag:'Margaret\'s letter — she missed you terribly.',im:1},
+fathers_letter:{name:'Father\'s Letter',rd:'A brittle, yellowed letter lies in the open strongbox.',ex:'The handwriting is rigid, deliberate — each letter formed with the precision of a man who said exactly what he meant. Black ink. Heavy stock. It begins: "Elias —" Not "Dear Elias." Not "My son." Just your name, followed by a dash.',mem:'Your father\'s study. Not like yours — no pressed flowers, no Latin. Ledgers. Account books. Pipe tobacco and boot polish. He stood behind his desk — never sat when delivering a verdict — and said: "You have chosen weeds over this family\'s legacy. Three generations of Wrens have worked this land."\n\nYou tried to explain. Botany. Research. The university. He held up a hand.\n\n"I have nothing more to say to you."\n\nThe letter came six months later. Formal. Final. The farm went to your cousin. You were no longer welcome at holidays. He signed it "R. Wren" — not "Father." Not even "Robert."\n\nMargaret held you that night while you wept. You never wrote back. He died in 1919 without another word between you.\n\nYou kept the letter in a locked box because you couldn\'t bear to read it again. And you couldn\'t bear to throw it away.',tag:'A father\'s silence — some wounds never heal.',im:1}
 };
+
+// ─────────────── DATA: FLAVOR OBJECTS ───────────────────
 
 const FLAV={
-pipe:{name:'Briar Pipe',rd:'A briar pipe rests in a ceramic dish, its bowl blackened from use.',ex:'The pipe is well-worn — tooth marks on the stem, old tobacco caked in the bowl. It smells of cherry and oak. You hold it to your lips without thinking. Natural, comfortable, but no memory comes. Just the ghost of a habit.'},
-spectacles:{name:'Wire-Rimmed Spectacles',rd:'A pair of wire-rimmed spectacles sits folded on a surface.',ex:'Round lenses, thin gold wire, one temple bent. You put them on. The world doesn\'t change. But wearing them feels right, like putting on a familiar coat.'},
-chess_piece:{name:'Ivory Chess King',rd:'An ivory chess king lies on its side, separated from its board.',ex:'Hand-carved ivory, heavier than expected. A chip on the crown from years of play. You turn it in your fingers and feel a pang — competitiveness? Fondness? Someone you played against regularly. The feeling fades without a face.'},
-thimble:{name:'Silver Thimble',rd:'A tiny silver thimble sits on a windowsill, catching the light.',ex:'Engraved with a vine pattern — delicate, feminine work. Not yours. Someone else\'s smaller, patient hands that mended and stitched. You close your fist around it and feel a warmth.'},
-compass:{name:'Brass Compass',rd:'A brass compass lies here, its glass face clouded with age.',ex:'The needle spins slowly then stops, pointing firmly in one direction. Not north. Toward something, or away from something? It holds steady, unwavering.'},
-pressed_flower:{name:'Pressed Orchid',rd:'A pressed orchid lies between two sheets of wax paper.',ex:'Dendrobium nobile. The Latin name arrives without effort — family Orchidaceae, tribe Dendrobieae. You know EVERY plant. The knowledge is there even when nothing else is.'},
-photograph:{name:'Faded Photograph',rd:'A loose photograph lies here, face-down, its edges curling.',ex:'Men in academic robes on stone steps. One in the second row waves, grinning. Something about his posture feels familiar. Is that you? Too faded to be sure. On the back: \'Faculty, Autumn 1921.\''},
-key:{name:'Brass Key',rd:'A small brass key lies here, attached to a leather fob.',ex:'A desk key or cabinet key. Initials on the fob rubbed smooth. You try it in the nearest keyhole. Doesn\'t fit. Whatever this opened, it isn\'t in this room.'},
-tin_soldier:{name:'Lead Soldier',rd:'A small lead soldier stands at attention, paint worn to bare metal.',ex:'A British infantryman, three inches tall. The paint loved off by small fingers. One arm bent wrong — a casualty of play, carefully bent back. A child treasured this soldier.'},
-pencil_sketch:{name:'Pencil Sketch',rd:'A pencil sketch on yellowed paper lies here.',ex:'A sketch of THIS house, drawn from the garden. Smoke from the chimney. A figure at an upstairs window, too small to see. Confident lines, good perspective. In the corner: \'Home, Sept. 1919.\''},
-cufflinks:{name:'Enamel Cufflinks',rd:'Green enamel cufflinks sit in a small leather box.',ex:'Forest green enamel in brass, each painted with a tiny fern frond. Custom work for a man who loved botany. The box lined with blue velvet. No card. But important enough to keep.'},
-candle_stub:{name:'Candle Stub',rd:'A half-burned candle sits in a brass holder, wax pooled at the base.',ex:'Two-inch stub, wax dripped in long runs. Someone was working by candlelight when they stopped — the wick is pinched, not blown out. A careful habit.'},
-recipe_card:{name:'Handwritten Recipe',rd:'A stained recipe card lies here, spotted with old grease.',ex:'In a woman\'s neat hand: \'Mother Wren\'s Blackberry Tart.\' — \'use only the berries from the south hedge, the north ones are too sour.\' Below, different ink: \'Elias says add more sugar. Elias is wrong.\' You smile.'},
-magnifying_lens:{name:'Magnifying Lens',rd:'A magnifying lens lies here, its brass handle tarnished green.',ex:'Large lens, heavy brass frame. You hold it up and the room leaps into sharp, painful detail. Every crack, every dust mote. You lower it. Some things are better seen at a distance.'},
-sheet_music:{name:'Sheet Music',rd:'Sheet music lies here, held together with a rusted clip.',ex:'A piano arrangement of \'Clair de Lune.\' Dog-eared, annotated — \'slower here,\' \'M\'s favorite part.\' Someone practiced this often, for someone who loved it.'},
-bird_skull:{name:'Small Bird Skull',rd:'A tiny bird skull sits on cotton wool.',ex:'Sparrow. Passer domesticus. Fragile and perfect, cleaned with a naturalist\'s care. A specimen, not a trophy. Beauty in small bones. You feel a strange tenderness.'},
-garden_trowel:{name:'Garden Trowel',rd:'A garden trowel leans against the wall, blade crusted with old dirt.',ex:'The handle worn smooth from years. Good steel, still sound. Your hand knows exactly how to hold it, how to angle for planting. Muscle memory, even when the rest is gone.'},
-medicine_bottle:{name:'Brown Glass Bottle',rd:'A small brown glass bottle sits here, label half-peeled.',ex:'\'Dr. Hartley\'s Cardiac Tonic — one tablespoon, twice daily.\' Nearly empty. Heart medicine. Someone here had a bad heart. You set it down. Your hand is steady. No tremor. You feel fine. You feel nothing at all, actually.'},
+pipe:{name:'Briar Pipe',rd:'A briar pipe rests in a ceramic dish, its bowl blackened.',ex:'The pipe is well-worn — tooth marks on the stem, old tobacco in the bowl. Cherry and oak. You hold it to your lips without thinking. Natural, but no memory comes.'},
+spectacles:{name:'Wire-Rimmed Spectacles',rd:'Wire-rimmed spectacles sit folded on a surface.',ex:'Round lenses, gold wire, one temple bent. You put them on. The world doesn\'t change. But wearing them feels right.'},
+chess_piece:{name:'Ivory Chess King',rd:'An ivory chess king lies on its side.',ex:'Hand-carved ivory, heavier than expected. A chip on the crown. You turn it and feel a pang — competitiveness? Fondness? The feeling fades without a face.'},
+thimble:{name:'Silver Thimble',rd:'A tiny silver thimble catches the light.',ex:'Engraved with vines — delicate, feminine. Not yours. Smaller, patient hands. You close your fist around it and feel warmth.'},
+compass:{name:'Brass Compass',rd:'A brass compass lies here, glass clouded.',ex:'The needle spins then stops. Not north. Toward something, or away? It holds steady, unwavering.'},
+pressed_flower:{name:'Pressed Orchid',rd:'A pressed orchid between wax paper sheets.',ex:'Dendrobium nobile. The Latin arrives effortlessly — Orchidaceae, Dendrobieae. You know EVERY plant. The knowledge persists when nothing else does.'},
+photograph:{name:'Faded Photograph',rd:'A loose photograph, face-down, edges curling.',ex:'Men in academic robes on stone steps. One waves, grinning. Something familiar about his posture. On the back: \'Faculty, Autumn 1921.\''},
+key:{name:'Brass Key',rd:'A brass key on a leather fob.',ex:'A desk or cabinet key. Initials rubbed smooth. You try the nearest keyhole. Doesn\'t fit. Whatever this opened isn\'t here.'},
+tin_soldier:{name:'Lead Soldier',rd:'A lead soldier at attention, paint worn bare.',ex:'British infantryman, three inches tall. Paint loved off by small fingers. One arm bent wrong — carefully bent back. A child treasured this.'},
+pencil_sketch:{name:'Pencil Sketch',rd:'A pencil sketch on yellowed paper.',ex:'THIS house, drawn from the garden. Smoke from the chimney. A figure at an upstairs window. In the corner: \'Home, Sept. 1919.\''},
+cufflinks:{name:'Enamel Cufflinks',rd:'Green enamel cufflinks in a leather box.',ex:'Forest green, each with a tiny fern frond. Custom work for a botanist. Blue velvet lining. No card. But important enough to keep.'},
+candle_stub:{name:'Candle Stub',rd:'A half-burned candle in a brass holder.',ex:'Two-inch stub, wax in long drips. The wick is pinched, not blown. Someone stopped working by candlelight. A careful habit.'},
+recipe_card:{name:'Handwritten Recipe',rd:'A stained recipe card, spotted with grease.',ex:'\'Mother Wren\'s Blackberry Tart\' — \'use the south hedge berries, north ones are too sour.\' Below: \'Elias says add more sugar. Elias is wrong.\' You smile.'},
+magnifying_lens:{name:'Magnifying Lens',rd:'A magnifying lens, brass handle tarnished.',ex:'Large lens, heavy brass. The room leaps into painful detail. Every crack, every mote. You lower it. Some things are better at a distance.'},
+sheet_music:{name:'Sheet Music',rd:'Sheet music held with a rusted clip.',ex:'\'Clair de Lune.\' Dog-eared, annotated — \'slower here,\' \'M\'s favorite part.\' Practiced often, for someone who loved it.'},
+bird_skull:{name:'Small Bird Skull',rd:'A tiny bird skull on cotton wool.',ex:'Sparrow. Passer domesticus. Fragile, perfect. A naturalist\'s care. Beauty in small bones. You feel tenderness.'},
+garden_trowel:{name:'Garden Trowel',rd:'A trowel against the wall, blade crusted.',ex:'Handle worn smooth. Good steel. Your hand knows exactly how to hold it. Muscle memory when the rest is gone.'},
+medicine_bottle:{name:'Brown Glass Bottle',rd:'A brown glass bottle, label half-peeled.',ex:'\'Dr. Hartley\'s Cardiac Tonic — one tablespoon, twice daily.\' Nearly empty. Heart medicine. You set it down. Your hand is steady. You feel nothing at all, actually.'},
+iron_key:{name:'Blackened Iron Key',rd:'A blackened iron key lies here, heavy for its size.',ex:'Heavy, dark iron. Not a house key — something more deliberate. A safe, or a strongbox. Whatever this opens was meant to stay closed. You turn it in your fingers and feel a reluctance you can\'t explain. Part of you doesn\'t want to know.'}
 };
+
+// ─────────────── DATA: ROOMS ────────────────────────────
+// Each room has decay arrays: observations at visit thresholds
 
 const RP={
-foyer:{n:'The Foyer',f:'g',req:1,d:'A once-handsome entrance hall. Wallpaper peels in long strips and the tile floor is gritty underfoot. A chandelier hangs overhead, crystals clouded. The front door behind you is swollen shut.',a:['You try the front door. It won\'t budge.','A coat rack by the door. A wool overcoat, grey with dust. It looks like it would fit you.','You know this house. You knew where the staircase was before you saw it.','Same pale overcast light as when you arrived. What time is it?','No sounds from outside. No birds, no wind. Just the house.']},
-parlor:{n:'The Parlor',f:'g',d:'Two armchairs face a cold fireplace, a chess game mid-play between them. Bookshelves line the walls. Above the mantelpiece: a portrait of a man, a woman, and a small boy.',a:['The portrait. The man\'s jaw, the way he stands. He looks like someone you know.','You sit in the left armchair without thinking. It feels natural.','The books are mostly botany. Someone had a specific passion.','White was three moves from checkmate. Why walk away?','You pull \'Flora of the British Isles\' without looking. Muscle memory.']},
-dining_room:{n:'The Dining Room',f:'g',d:'A long oak table set for four. Plates, glasses, tarnished silverware — a dinner never cleared. A candelabra at center, melted to stubs.',a:['Four settings. A family of four.','A napkin folded into a swan at the smallest setting.','Real silver — tarnished black. A household that cared.','A crack in one plate. You knew it was there before you looked.','Dust undisturbed. Nobody has eaten here in a very long time.']},
-kitchen:{n:'The Kitchen',f:'g',d:'Copper pots on hooks, a cast-iron stove gone to rust, a stone sink with a hand pump. Faint smell of rosemary.',a:['A calendar: October 1923. A heart drawn around the 14th.','The herb smell comes and goes. Strongest near the stove.','A teacup with a dried ring of tea. Someone\'s last cup.','You open a cupboard by instinct. Jars of preserves inside.','The window shows the same flat sky. Hasn\'t changed.']},
-cellar:{n:'The Cellar',f:'g',d:'Cool, low-ceilinged. Smells of damp earth. Wine racks line the walls — a few bottles survive, most broken.',a:['Surviving bottles: \'Bordeaux 1908,\' \'Port 1912.\'','Honest mineral cold of stone.','Height marks on the wall. \'T.W. — age 3.\' \'T.W. — age 4.\' They stop at 5.','T.W. Thomas Wren? Who stopped measuring?','Quiet down here. The house feels far away.']},
-conservatory:{n:'The Conservatory',f:'g',d:'Glass walls, most panes cracked. Wrought-iron plant stands hold husks of dead ferns. A potting bench under dried soil.',a:['Plant stands labeled in tiny Latin handwriting.','One fern survives — a green frond uncurling. Stubborn.','Soil under your fingernails. Wait — your nails are clean. But you felt it.','Broken glass underfoot. Open to the elements for years.','A rusted watering can. The care here is obvious even in ruin.']},
-library:{n:'The Library',f:'g',d:'Floor-to-ceiling shelves. A leather reading chair by a standing lamp with no bulb. Smells of old paper and binding glue.',a:['Botany, taxonomy, natural history. A whole section on orchids.','A bookmark halfway through a chapter on alpine pollination.','The chair fits you like it was broken in by your body.','\'Proceedings of the Royal Botanical Society.\' 1920 to 1923.','Penciled notes in every margin. Small, meticulous. Yours.']},
-pantry:{n:'The Pantry',f:'g',d:'Narrow room. Shelves of mason jars, tins, crockery. Most labels peeled.',a:['Crystallized honey in a jar. Still good, probably.','Labels in feminine hand: \'Blackberry 1922,\' \'Plum 1923.\'','You reach for the tea tin without looking. Knew exactly where.','Flour hardened to a white crust. Years old.','Comfortable, but hands-on.']},
-wash_room:{n:'The Wash Room',f:'g',d:'Stone basin, wooden washboard, a mangle for wringing. Rope lines overhead, empty now.',a:['Folded linens in a wicker basket. Yellowed but neat.','The washboard worn smooth in the center.','Two aprons on pegs — one large, one small.','A bar of harsh soap, cracked and dry.','A working household.']},
-upstairs_hall:{n:'The Upstairs Hallway',f:'u',req:1,d:'A long hallway with closed doors. Carpet worn thin — decades of footsteps ground in. Faded photographs line the walls.',a:['Photographs. Formal poses, stiff collars. Ghosted by decades of light.','The carpet worn in a particular path. Thousands of trips.','A mirror at the end of the hall, clouded with age.','You walk the worn path. Your feet fit step for step.','How long have you been here? The light hasn\'t changed.']},
-bedroom:{n:'The Master Bedroom',f:'u',d:'Four-poster bed, canopy threadbare. Covers pulled back on the left, right neatly made. A vanity holds a hairbrush and dried flower.',a:['Only the left side slept in. For a long time.','A woman\'s shawl on the bedpost. Lavender and wool.','A wedding portrait on the nightstand. The groom might be you.','You know which drawer holds the watch. Left. How?','The vanity flower: Primula vulgaris. You just know.']},
-study:{n:'The Study',f:'u',d:'The most lived-in room. Books and specimen jars everywhere. A heavy desk under drawn curtains, papers and pressed flowers. The chair pushed back at an angle.',a:['Old paper and dried flowers. You feel at ease here.','The chair at an odd angle. Someone stood up fast. Or was pulled from their work.','You recognize every jar. Know the contents before reading.','The chair fits perfectly. Worn by your exact hands.','A child\'s drawing above the desk. A red train. \'For Papa.\'']},
-nursery:{n:'The Nursery',f:'u',d:'Faded blue paint. A crib, a rocking chair. Toys on the floor: blocks, a one-eyed stuffed bear, tin soldiers on the sill.',a:['A loved room. Someone spent hours here watching a child sleep.','Tin soldiers in careful formation. A child\'s serious work.','The stuffed bear. One button eye. Your chest tightens.','A music box — three notes, then it sticks.','Thomas\'s room. You know that now.']},
-guest_room:{n:'The Guest Room',f:'u',d:'Single iron bed, neatly made. Washstand, small wardrobe. Sterile tidiness of a space rarely used.',a:['Hospital corners. Pride in maintenance.','Guest book: last entry September 1923.','Wire hangers chime in the empty wardrobe.','Same unchanging sky.','This room doesn\'t feel like yours. The only one that doesn\'t.']},
-sewing_room:{n:'The Sewing Room',f:'u',d:'A treadle sewing machine, a mannequin in unfinished fabric. Spools of thread fill a wall rack.',a:['The fabric: a child\'s coat, half-finished. Expert stitching.','A basket of mending. Socks, a collar, patched trousers.','Margaret\'s room. You\'re certain without evidence.','Spools organized by color.','A thimble on the windowsill.']},
-bathroom:{n:'The Bathroom',f:'u',d:'Claw-foot tub, enamel yellowed. Pedestal sink. Medicine cabinet ajar. Black and white tile, cracked.',a:['Brown bottles in the cabinet. Tinctures from another era.','A straight razor on the ledge. Ivory handle.','Cabinet mirror at a bad angle. You see the wall behind you but not yourself.','Dried soap, cracked. Someone\'s last wash.','Mineral ring in the tub. Hard water.']},
-attic:{n:'The Attic',f:'u',d:'Under the eaves. Trunks, hatboxes, furniture in dust cloths. Cobwebs span the rafters. A round window, a disc of grey.',a:['A trunk of letters tied with ribbon. Too faded to read.','A cradle, older than the nursery crib. An heirloom.','Under a cloth: a rocking horse with a cracked eye.','A bowler hat in a hatbox. Fits you exactly.','Grey sky through the round window. No trees, no rooftops. Just grey.']},
+foyer:{n:'The Foyer',f:'g',req:1,d:'A once-handsome entrance hall. Wallpaper peels in long strips and the tile floor is gritty underfoot. A chandelier hangs overhead, crystals clouded. The front door behind you is swollen shut.',a:['You try the front door. It won\'t budge.','A wool overcoat on the rack, grey with dust. It would fit you.','You knew where the staircase was before you saw it.','Same pale light as when you arrived. What time is it?','No sounds from outside. Nothing.'],
+  decay:['The wallpaper has gotten worse. Whole sheets on the floor now, exposing dark plaster.','Most of the ceiling plaster has fallen. You can see the lath above, like ribs.','The chandelier crystals are clouded beyond recognition. One has fallen and shattered on the tile.']},
+parlor:{n:'The Parlor',f:'g',d:'Two armchairs face a cold fireplace, a chess game mid-play between them. Bookshelves line the walls. Above the mantelpiece: a portrait of a man, a woman, and a small boy.',a:['The man in the portrait. Something about his jaw.','The left armchair fits you naturally.','Books: mostly botany.','White was three moves from checkmate. Why walk away?','You pull \'Flora of the British Isles\' without looking.'],
+  decay:['The portrait is darker than before. The faces are harder to make out.','One of the armchairs has collapsed. The upholstery split open like a wound.','Books have fallen from the shelves. Pages scattered across the floor like dead leaves.']},
+dining_room:{n:'The Dining Room',f:'g',d:'A long oak table set for four. Plates, glasses, tarnished silverware — a dinner never cleared. A candelabra melted to stubs.',a:['Four settings. A family.','A napkin swan at the smallest place.','Tarnished silver. A household that cared.','A crack in one plate. You knew before you looked.','Dust undisturbed. A very long time.'],
+  decay:['A glass has toppled over. How? Nothing touched it.','The table has warped. Plates slide toward the center, gathering like mourners.','The candelabra has tipped. Wax pooled across the table like a frozen flood.']},
+kitchen:{n:'The Kitchen',f:'g',d:'Copper pots on hooks, a cast-iron stove gone to rust, a stone sink with a hand pump. Faint smell of rosemary.',a:['Calendar: October 1923. Heart around the 14th.','Herb smell comes and goes.','A teacup with dried tea. Someone\'s last cup.','You open a cupboard by instinct.','Same flat sky through the window.'],
+  decay:['The herb smell is gone now. Just dust and rust.','A pot has fallen from its hook. The clang should have echoed, but the house swallowed the sound.','The stove has rusted through. A hole in its side shows the wall behind.']},
+cellar:{n:'The Cellar',f:'g',d:'Cool, low-ceilinged. Damp earth. Wine racks line the walls — a few bottles survive, most broken.',a:['\'Bordeaux 1908,\' \'Port 1912.\' Someone took wine seriously.','Mineral cold of stone.','Height marks: \'T.W. — age 3.\' \'T.W. — age 4.\' They stop at 5.','T.W. Thomas Wren? Who stopped measuring?','Quiet. The house feels far away.'],
+  decay:['More bottles have fallen. The dark stain on the floor has spread.','The height marks on the wall are crumbling. T.W. — age 3 is barely legible now.','Water is seeping through the mortar. The cellar is slowly drowning.']},
+conservatory:{n:'The Conservatory',f:'g',d:'Glass walls, most panes cracked. Wrought-iron plant stands hold husks of dead ferns. A potting bench under dried soil.',a:['Plant stands labeled in Latin.','One fern survives — a green frond uncurling.','Soil under your fingernails. Wait — your nails are clean.','Broken glass underfoot.','A rusted watering can. Care obvious even in ruin.'],
+  decay:['The surviving fern has browned. Even stubbornness has limits.','More glass panes have fallen in. The conservatory is more outside than inside now.','The potting bench has collapsed under the weight of accumulated decay.']},
+library:{n:'The Library',f:'g',d:'Floor-to-ceiling shelves. A leather reading chair by a standing lamp with no bulb. Old paper and binding glue.',a:['Botany, taxonomy, orchids.','A bookmark halfway through alpine pollination.','The chair fits like it was broken in by your body.','\'Royal Botanical Society.\' 1920 to 1923.','Penciled notes in every margin. Yours.'],
+  decay:['Books are swelling with damp. Spines cracking, pages fusing together.','The leather chair is splitting. Horsehair stuffing pokes through like grey grass.','A shelf has buckled. Books piled on the floor in a cairn of lost knowledge.']},
+pantry:{n:'The Pantry',f:'g',d:'Narrow room. Shelves of mason jars, tins, crockery. Most labels peeled.',a:['Crystallized honey. Still good, probably.','Labels: \'Blackberry 1922,\' \'Plum 1923.\'','You reach for the tea tin without looking.','Flour hardened to crust.','Comfortable, hands-on.'],
+  decay:['A jar has cracked. Dark preserves leak down the shelf like old blood.','The shelves are sagging. Tins have rolled to the floor.','Half the jars are broken now. The room smells of vinegar and time.']},
+wash_room:{n:'The Wash Room',f:'g',d:'Stone basin, wooden washboard, a mangle for wringing. Rope lines overhead, empty.',a:['Folded linens, yellowed but neat.','Washboard worn smooth.','Two aprons on pegs — large and small.','Harsh soap, cracked and dry.','A working household.'],
+  decay:['The rope lines have sagged. One has snapped, dangling like a severed nerve.','The wooden washboard has split down the center.','The mangle is frozen with rust. It will never wring again.']},
+upstairs_hall:{n:'The Upstairs Hallway',f:'u',req:1,d:'A long hallway with closed doors. Carpet worn thin — decades of footsteps ground in. Faded photographs on the walls.',a:['Photographs. Formal poses. Ghosted by decades of light.','Carpet worn in a particular path. Thousands of trips.','A mirror at the end of the hall, clouded.','You walk the worn path. Your feet fit.','How long have you been here? The light hasn\'t changed.'],
+  decay:['A photograph has fallen from the wall. The glass cracked across the face you almost recognized.','The carpet is disintegrating. Threads trail behind you like a path through a forest.','A door at the end of the hall has swollen open. Beyond it: only shadow.']},
+bedroom:{n:'The Master Bedroom',f:'u',d:'Four-poster bed, canopy threadbare. Covers pulled back on the left, right neatly made. A vanity holds a hairbrush and dried flower.',a:['Only the left side slept in. Long time.','Shawl on the bedpost. Lavender.','Wedding portrait on the nightstand. The groom might be you.','You know which drawer. Left. How?','Primula vulgaris. You just know.'],
+  decay:['The canopy has torn further. It hangs in strips like shed skin.','The dried flower on the vanity has crumbled to powder.','The mattress has sagged into the frame. No one will ever sleep here again.']},
+study:{n:'The Study',f:'u',d:'The most lived-in room. Books and specimen jars everywhere. A heavy desk under drawn curtains, papers and pressed flowers. The chair pushed back at an angle.',a:['Old paper and dried flowers. At ease here.','Chair at an odd angle. Stood up fast. Or was pulled.','You recognize every jar before reading.','Chair fits perfectly. Your hands.','A child\'s drawing. Red train. \'For Papa.\''],
+  decay:['A specimen jar has cracked. The pressed flower inside is curling, exposed to air after decades.','The desk is warping. Papers slide toward the edges as if the wood is breathing.','The curtains have rotted. Pale light pours in from a window that shows nothing. Nothing at all.']},
+nursery:{n:'The Nursery',f:'u',d:'Faded blue paint. A crib, a rocking chair. Toys: blocks, a one-eyed stuffed bear, tin soldiers on the sill.',a:['A loved room. Hours watching a child sleep.','Tin soldiers in formation. A child\'s work.','The bear. One eye. Your chest tightens.','Music box — three notes, then sticks.','Thomas\'s room.'],
+  decay:['The blue paint is flaking off in chips. Bare plaster underneath, the color of bone.','The stuffed bear has slumped sideways. Its remaining eye stares at the floor.','The crib has collapsed. Gently, as if it laid itself down.']},
+guest_room:{n:'The Guest Room',f:'u',d:'Single iron bed, neatly made. Washstand, small wardrobe. Sterile tidiness.',a:['Hospital corners. Pride.','Guest book: last entry September 1923.','Wire hangers chime in the wardrobe.','Same unchanging sky.','Doesn\'t feel like yours. Only room that doesn\'t.'],
+  decay:['The bedspread has yellowed further. Time is pressing down on this room.','The washstand basin has cracked. A hairline fracture, but irreversible.','Even this tidy room is losing its composure. Dust on the hospital corners.']},
+sewing_room:{n:'The Sewing Room',f:'u',d:'Treadle sewing machine, mannequin in unfinished fabric. Spools of thread fill a wall rack.',a:['Child\'s coat, half-finished. Expert stitching.','Basket of mending. Socks, collar, trousers.','Margaret\'s room. Certain without evidence.','Spools organized by color.','Thimble on the sill.'],
+  decay:['The unfinished coat has faded. The fabric thin enough to see through.','Thread spools have unraveled. Color everywhere, tangled, purposeless.','The sewing machine needle has rusted into its plate. Frozen mid-stitch.']},
+bathroom:{n:'The Bathroom',f:'u',d:'Claw-foot tub, enamel yellowed. Pedestal sink. Medicine cabinet ajar. Black and white tile, cracked.',a:['Brown bottles in the cabinet. Tinctures.','Straight razor, still sharp. Ivory.','Cabinet mirror at a bad angle. Wall behind you but not yourself.','Dried soap, cracked.','Mineral ring in the tub. Hard water.'],
+  decay:['The mirror on the cabinet has cracked. Your non-reflection is now in two pieces.','More tiles have loosened. They shift underfoot like teeth in a jaw.','The tub\'s enamel is peeling. Yellow flakes on the floor like dead petals.']},
+attic:{n:'The Attic',f:'u',d:'Under the eaves. Trunks, hatboxes, furniture in dust cloths. Cobwebs span the rafters. A round window, a disc of grey.',a:['Letters in a trunk, tied with ribbon. Too faded.','A cradle, older than the crib. Heirloom.','Under a cloth: rocking horse, cracked eye.','Bowler hat in a hatbox. Fits exactly.','Grey through the round window. No trees. Just grey.'],
+  decay:['A rafter has cracked. The attic ceiling sags inward like a held breath.','The dust cloths are disintegrating. The furniture beneath is exposed and ashamed.','The round window is darker. The grey outside is thicker, closer, pressing in.']}
 };
 
-const DK_ARR=['The temperature drops. Not gradually — all at once, as though something swallowed the warmth. The shadows aren\'t just dark. They\'re DEEP. They\'re moving.','A heaviness settles like a held breath. The light dims — not clouds, but a candle guttering when something passes through the air.','Something is here. You can\'t see it. You can\'t name it. But the room is smaller. The air resists you.'];
-const DK_ESC={2:['The darkness is closer. You can FEEL it — not on your skin, but on your memories. They flicker like a candle in wind.','You can\'t remember which direction you came from. The exits are there, but the darkness is between you and the details.','Something is pulling at you. Not your body — your NAME. You\'re fraying like old cloth.'],1:['The darkness has a voice. Not words — a sound like forgetting itself. It says: you are nothing.','You are dissolving. Not your body — your SELF. Mother. Margaret. Thomas. Their faces are going dark.','This is what it means to be truly forgotten. Not by others — by yourself.']};
-const DK_NEAR=['A chill from somewhere close. Not winter cold — something less natural.','The light seems thinner. Shadows a shade too dark in one direction.','A pull — faint gravity toward one exit. Or away from something behind it.','The air has weight. Somewhere nearby, something is wrong.'];
-const DK_BAN=['You open your mouth and the lullaby comes out. Fragile, wavering — but real. Three notes rising, three falling. Your mother\'s song.\n\nThe darkness FLINCHES. It recoils like a living thing struck by light. The shadows peel back, the air warms, the pressure lifts. For a moment you feel her — your mother, standing behind you. "My little sparrow."\n\nThen she\'s gone. But the darkness is gone too.','The lullaby rises before you think to hum it. Three notes up, three down. A mother\'s voice across decades.\n\nThe darkness shudders. Contracts. Pulls away like oil from water. The room brightens. The weight lifts.\n\nThe melody fades, but the warmth stays.'];
-const DK_NO=['You try to hum but nothing comes out. You don\'t know any songs.','You open your mouth but there\'s no melody. Just silence. The darkness presses closer.','Hum what? You reach for a song and find only void.'];
+// ─────────────── DATA: DARKNESS TEXT ────────────────────
+
+const DK_ARR=['The temperature drops. All at once. The shadows aren\'t just dark. They\'re DEEP. They\'re moving.','A heaviness settles like a held breath. The light gutters like a candle when something passes through.','Something is here. You can\'t name it. The room is smaller. The air resists you.'];
+const DK_ESC={2:['The darkness is closer. You FEEL it — on your memories. They flicker like candles in wind.','You can\'t remember which direction you came from. The darkness is between you and the details.','Something pulls at you. Not your body — your NAME. You\'re fraying like old cloth.'],1:['The darkness has a voice. A sound like forgetting itself. It says: you are nothing.','You are dissolving. Mother. Margaret. Thomas. Their faces going dark.','This is being truly forgotten. Not by others — by yourself.']};
+const DK_NEAR=['A chill from somewhere close. Not winter cold — less natural.','Light seems thinner. Shadows too dark in one direction.','A pull — faint gravity toward one exit. Or away from something.','The air has weight. Somewhere nearby, something is wrong.'];
+const DK_BAN=['You open your mouth and the lullaby comes out. Fragile, wavering — but real. Three notes rising, three falling.\n\nThe darkness FLINCHES. Recoils like a living thing struck by light. Shadows peel back, air warms, pressure lifts. For a moment — your mother, behind you, hands on your shoulders. "My little sparrow."\n\nShe\'s gone. But the darkness is gone too.','The lullaby rises before you think to hum it. Three notes up, three down.\n\nThe darkness shudders. Contracts. Pulls away like oil from water. The room brightens.\n\nThe melody fades, but the warmth stays.'];
+const DK_NO=['You try to hum but nothing comes. You don\'t know any songs.','No melody. Just silence. The darkness presses closer.','Hum what? Only void where music should be.'];
+
+// ─────────────── DATA: CORRUPTION WORDS ─────────────────
+
+const CORRUPT_SWAPS=[
+  ['four','five'],['three','four'],['left','right'],['warm','cold'],
+  ['light','dark'],['open','closed'],['old','ancient'],['quiet','silent'],
+  ['dust','ash'],['home','tomb'],['room','cage'],['door','wall'],
+  ['family','strangers'],['morning','midnight'],['remember','forget'],
+  ['alive','gone'],['love','loss'],['name','nothing'],['here','nowhere'],
+  ['you','no one'],['chair','coffin'],['bed','grave'],['window','mirror'],
+  ['waiting','watching'],['empty','hollow'],['still','dead']
+];
+
+// ─────────────── DATA: TRACE TEMPLATES ──────────────────
+
+const TRACE_TEMPLATES=[
+  'There are scratches on the doorframe. Tally marks — {n} of them. You don\'t remember making them, but you know they\'re yours.',
+  'A note in your own handwriting, wedged behind a baseboard: "DON\'T FORGET THE LULLABY."',
+  'Something is written in the dust on the floor: "E.W. WAS HERE." The handwriting is frantic.',
+  'Scratched into the plaster, barely visible: "THE DARKNESS LIES."',
+  'A smudge on the wall at shoulder height, as if someone leaned here, exhausted, many times.',
+  'There are faint circles worn into the floor. Someone paced this exact room, over and over.',
+  'A note tucked into a crack: "The locket. Find the locket first."',
+  'Written on the wall in a shaking hand: "MARGARET I\'M SORRY."',
+  'Tally marks on the windowsill. {n} groups of five. How long have you been doing this?',
+  'A single word carved into the floor: "REMEMBER."'
+];
+
+// ─────────────── MAP GENERATION ─────────────────────────
 
 function genHouse(){
   const gR=Object.entries(RP).filter(([,v])=>v.f==='g'&&v.req).map(([k])=>k);
@@ -112,32 +318,38 @@ function genHouse(){
   const upper=[...uR,...uO.slice(0,3+Math.floor(Math.random()*3))];
   const allIds=[...ground,...upper];
   const rooms={};
-  for(const id of allIds){const t=RP[id];rooms[id]={name:t.n,floor:t.f,desc:t.d,amb:[...t.a],exits:{},items:[],fv:true}}
+  for(const id of allIds){const t=RP[id];rooms[id]={name:t.n,floor:t.f,desc:t.d,amb:[...t.a],decay:t.decay?[...t.decay]:[],exits:{},items:[],fv:true,visits:0}}
   const dirs=['north','south','east','west'];
   function conn(rd,rl){
     if(rl.length<=1)return;const li=shuf(rl),co=[li[0]],rem=li.slice(1);
     while(rem.length){const nr=rem.shift();const ca=shuf([...co]);
       for(const p of ca){const ap=dirs.filter(d=>!rd[p].exits[d]);const an=dirs.filter(d=>!rd[nr].exits[d]);
-        let ok=false;for(const d of ap){const o=OPP[d];if(an.includes(o)){rd[p].exits[d]=nr;rd[nr].exits[o]=p;ok=true;break}}if(ok)break}
-      co.push(nr)}
-    for(let t=0;t<30;t++){const[a,b]=shuf(rl);if(Object.values(rd[a].exits).includes(b))continue;
+        let ok=0;for(const d of ap){const o=OPP[d];if(an.includes(o)){rd[p].exits[d]=nr;rd[nr].exits[o]=p;ok=1;break}}if(ok)break}co.push(nr)}
+    for(let t=0;t<30;t++){const[a,b]=shuf(rl);if(!a||!b||Object.values(rd[a].exits).includes(b))continue;
       const af=dirs.filter(d=>!rd[a].exits[d]),bf=dirs.filter(d=>!rd[b].exits[d]);
       for(const d of af){if(bf.includes(OPP[d])){rd[a].exits[d]=b;rd[b].exits[OPP[d]]=a;return}}}}
   conn(rooms,ground);conn(rooms,upper);
-  const sd=shuf([...dirs]);for(const sp of sd){const o=OPP[sp];
+  for(const sp of shuf([...dirs])){const o=OPP[sp];
     if(!rooms.foyer.exits[sp]&&!rooms.upstairs_hall.exits[o]){rooms.foyer.exits[sp]='upstairs_hall';rooms.upstairs_hall.exits[o]='foyer';break}}
   const vis=new Set(),q=['foyer'];while(q.length){const r=q.shift();if(vis.has(r))continue;vis.add(r);for(const nb of Object.values(rooms[r].exits))if(!vis.has(nb))q.push(nb)}
   for(const ur of allIds.filter(r=>!vis.has(r))){for(const vr of vis){const vf=dirs.filter(d=>!rooms[vr].exits[d]),uf=dirs.filter(d=>!rooms[ur].exits[d]);
     for(const d of vf){if(uf.includes(OPP[d])){rooms[vr].exits[d]=ur;rooms[ur].exits[OPP[d]]=vr;vis.add(ur);break}}if(vis.has(ur))break}}
   const ai={...MEM,...FLAV};const el=shuf(allIds.filter(r=>r!=='foyer'));
-  const mk=shuf(Object.keys(MEM)),tg=[...el];for(const m of mk)rooms[tg.shift()].items.push(m);
-  const fk=shuf(Object.keys(FLAV)),nf=6+Math.floor(Math.random()*4),fe=shuf([...el]);
+  // Place normal memory artifacts (excluding fathers_letter — it lives in the safe)
+  const mk=shuf(Object.keys(MEM).filter(k=>k!=='fathers_letter')),tg=[...el];for(const m of mk)rooms[tg.shift()].items.push(m);
+  // Place iron_key and pick safe room (never same room)
+  const safeRoom=el.find(r=>!rooms[r].items.length)||el[el.length-1];
+  const keyCands=el.filter(r=>r!==safeRoom);
+  const ironKeyRoom=pick(keyCands);rooms[ironKeyRoom].items.push('iron_key');
+  // Place other flavor objects
+  const fk=shuf(Object.keys(FLAV).filter(k=>k!=='iron_key')),nf=6+Math.floor(Math.random()*4),fe=shuf([...el]);
   for(let i=0;i<Math.min(nf,fk.length);i++)rooms[fe[i%fe.length]].items.push(fk[i]);
-  return{rooms,allIds,ai}
+  return{rooms,allIds,ai,safeRoom}
 }
 
-// ─── TERMINAL ───
-class T{
+// ─────────────── TERMINAL ───────────────────────────────
+
+class Terminal{
   constructor(){this.o=document.getElementById('output');this.i=document.getElementById('ci');this.c=document.getElementById('crt');this._r=null;this._ae=false;
     this.i.addEventListener('keydown',e=>{if(e.key==='Enter'&&this._r){const v=this.i.value.trim().toLowerCase();this.i.value='';
       if(v||this._ae){if(v)this.p('  > '+v+'\n','ce');const r=this._r;this._r=null;this._ae=false;r(v)}}});
@@ -146,241 +358,472 @@ class T{
   di(){this.i.disabled=true}
   p(t,c){const s=document.createElement('span');if(c)s.className=c;s.textContent=t;this.o.appendChild(s);this.sb()}
   pl(t='',c){this.p(t+'\n',c)}
+  phtml(h){const s=document.createElement('span');s.innerHTML=h+'\n';this.o.appendChild(s);this.sb()}
   async sp(t,d=25,c){this.di();const s=document.createElement('span');if(c)s.className=c;this.o.appendChild(s);
     for(let i=0;i<t.length;i++){s.textContent+=t[i];if(i%3===0)this.sb();await this.w(d)}s.textContent+='\n';this.sb()}
   ps(ch='─',w=60){this.pl(ch.repeat(w),'sep')}
   pb(t){const w=58,lines=[];let cur='';for(const word of t.split(' ')){if(cur.length+word.length+1>w){lines.push(cur);cur=word}else cur=cur?cur+' '+word:word}if(cur)lines.push(cur);
     let b='╔'+'═'.repeat(w+2)+'╗\n';for(const l of lines)b+='║  '+l+' '.repeat(w-l.length)+'║\n';b+='╚'+'═'.repeat(w+2)+'╝';this.pl(b,'bx')}
   cl(){this.o.textContent=''}
-  sb(){document.getElementById('terminal').scrollTop=document.getElementById('terminal').scrollHeight}
+  sb(){document.getElementById('terminal').scrollTop=9999999}
   w(ms){return new Promise(r=>setTimeout(r,ms))}
   se(e){this.c.classList.remove('dk','mem');if(e)this.c.classList.add(e)}
 }
 
-// ─── GAME ───
-class G{
-  constructor(t){this.t=t;this.rc=0;this._iw()}
-  _iw(){const{rooms,allIds,ai}=genHouse();this.rooms=rooms;this.ids=allIds;this.ai=ai;
+// ─────────────── GAME ENGINE ────────────────────────────
+
+class Game{
+  constructor(t){this.t=t;this.snd=new Sound();this.rc=0;this.traces=[];this.totalMoves=0;this._iw()}
+
+  _iw(){
+    const{rooms,allIds,ai,safeRoom}=genHouse();this.rooms=rooms;this.ids=allIds;this.ai=ai;
+    this.safeRoom=safeRoom;this.safeOpened=false;
     this.cr='foyer';this.inv=[];this.mu=[];this.mv=0;this.go=false;
-    const el=this.ids.filter(r=>r!=='foyer');this.dr=pick(el);this.dt=5+Math.floor(Math.random()*4);this.et=0;this.da=true;this.dbu=0}
-  rs(){this.rc++;this._iw()}
-  get mc(){return this.mu.length}get ta(){return Object.keys(MEM).length}
-  hi(k){return this.inv.includes(k)}hm(k){return this.mu.includes(k)}hl(){return this.mu.includes('locket')}
-  iid(){return this.da&&this.cr===this.dr}idn(){return this.da&&Object.values(this.rooms[this.cr].exits).includes(this.dr)}
-  md(){const el=this.ids.filter(r=>r!=='foyer'&&r!==this.cr&&r!==this.dr);if(el.length)this.dr=pick(el);this.dt=5+Math.floor(Math.random()*4);this.et=0}
-  td(){if(!this.da){if(this.mv>=this.dbu){this.da=true;const el=this.ids.filter(r=>r!=='foyer'&&r!==this.cr);if(el.length)this.dr=pick(el);this.dt=5+Math.floor(Math.random()*4)}return null}
-    this.dt--;if(this.dt<=0&&!this.iid())this.md();
-    if(this.iid()){if(this.et===0){this.et=3;return'arr'}this.et--;return this.et<=0?'con':'esc'}
+    // Smart darkness: bias + escalation
+    const el=this.ids.filter(r=>r!=='foyer');this.dr=pick(el);
+    this.dt=Math.max(4,6-this.rc)+Math.floor(Math.random()*3); // faster after resets
+    this.maxEt=Math.max(2,3-Math.floor(this.rc/2)); // fewer turns after resets
+    this.et=0;this.da=true;this.dbu=0;
+    // Inject traces from previous runs
+    if(this.traces.length){const traceRooms=shuf(el);
+      for(let i=0;i<Math.min(this.traces.length,3);i++){
+        this.rooms[traceRooms[i]].amb.push(this.traces[i])}}
+  }
+
+  reset(){
+    this.rc++;
+    // Generate traces from current run
+    const newTraces=[];
+    const tmpl=shuf(TRACE_TEMPLATES);
+    newTraces.push(tmpl[0].replace('{n}',String(this.rc)));
+    if(this.mu.length>0){
+      const lastMem=this.ai[this.mu[this.mu.length-1]];
+      newTraces.push('You find a scrap of paper. On it, in your handwriting: "'+lastMem.tag.split('—')[0].trim()+'." It means nothing to you now.')
+    }
+    this.traces=newTraces;
+    this._iw();
+  }
+
+  get mc(){return this.mu.length}
+  get ta(){return Object.keys(MEM).length}
+  hi(k){return this.inv.includes(k)}
+  hm(k){return this.mu.includes(k)}
+  hl(){return this.mu.includes('locket')}
+  iid(){return this.da&&this.cr===this.dr}
+  idn(){return this.da&&Object.values(this.rooms[this.cr].exits).includes(this.dr)}
+
+  // Smart darkness: bias toward rooms with uncollected memory artifacts
+  moveDarkness(){
+    const hasArtifact=this.ids.filter(r=>r!=='foyer'&&r!==this.cr&&
+      this.rooms[r].items.some(i=>this.ai[i]&&this.ai[i].im&&!this.hi(i)));
+    const eligible=this.ids.filter(r=>r!=='foyer'&&r!==this.cr&&r!==this.dr);
+    // 60% chance to pick artifact room if available
+    if(hasArtifact.length&&Math.random()<0.6){this.dr=pick(hasArtifact)}
+    else if(eligible.length){this.dr=pick(eligible)}
+    this.dt=Math.max(4,6-this.rc)+Math.floor(Math.random()*3);this.et=0;
+  }
+
+  tickDarkness(){
+    if(!this.da){if(this.mv>=this.dbu){this.da=true;const el=this.ids.filter(r=>r!=='foyer'&&r!==this.cr);if(el.length)this.dr=pick(el);this.dt=Math.max(4,6-this.rc)+Math.floor(Math.random()*3)}return null}
+    this.dt--;if(this.dt<=0&&!this.iid())this.moveDarkness();
+    if(this.iid()){if(this.et===0){this.et=this.maxEt;return'arr'}this.et--;return this.et<=0?'con':'esc'}
     this.et=0;return this.idn()?'near':null}
+
   fi(txt){txt=txt.toLowerCase().trim();if(this.ai[txt])return txt;
     for(const[k,it]of Object.entries(this.ai))if(it.name.toLowerCase().includes(txt)||k.includes(txt))return k;
     for(const[k,it]of Object.entries(this.ai))for(const w of txt.split(' '))if(w.length>2&&(it.name.toLowerCase().includes(w)||k===w))return k;return null}
 
+  // ─── Unreliable text: corrupt strings near darkness ───
+  corrupt(text,level){
+    if(level<=0)return text;
+    const chance=level===1?0.06:level===2?0.15:0.3;
+    return text.split(' ').map(word=>{
+      if(Math.random()>chance)return word;
+      const clean=word.toLowerCase().replace(/[^a-z]/g,'');
+      for(const[from,to]of CORRUPT_SWAPS){
+        if(clean===from)return level>=3?'█'.repeat(word.length):to}
+      if(level>=3&&word.length>3)return '—'.repeat(word.length);
+      return word;
+    }).join(' ');
+  }
+
+  getCorruptLevel(){
+    if(!this.da)return 0;
+    if(this.iid())return this.et<=1?3:2;
+    if(this.idn())return 1;
+    return 0;
+  }
+
+  // ─── Real clock integration ───
+  getClockAmbient(){
+    const h=new Date().getHours(),m=new Date().getMinutes();
+    // Special 11:47 event
+    if(h===23&&m===47){
+      return'The pocket watch in your hand grows warm. 11:47. Something about this moment — right now — is significant. The house holds its breath.'}
+    if(h>=22||h<3)return pick([
+      'Through the window, outside should be dark. It\'s late — you can feel it in your bones.',
+      'It must be the middle of the night. The house feels more awake than it should.',
+      'A late hour. The kind of hour when bad things happen to weak hearts.']);
+    if(h<7)return pick([
+      'It should be early morning. The light through the windows hasn\'t changed.',
+      'Dawn should be breaking. But the light here never changes.']);
+    if(h<12)return pick([
+      'Morning light should be streaming in. Instead: the same flat grey.',
+      'The morning should feel fresh. This house doesn\'t know what morning is.']);
+    if(h<17)return pick([
+      'Afternoon. The light outside should be shifting. It isn\'t.',
+      'The day should be half over. But time doesn\'t pass here. Not really.']);
+    return pick([
+      'Evening. The light should be golden, fading. It\'s the same grey as always.',
+      'The hour when families gather for dinner. The table is still set. Still waiting.']);
+  }
+
+  // ─────────── MAIN LOOP ───────────────────────
+
   async start(){
     await this.title();
     while(true){
-      await this.intro();await this.desc();let wc=false;
+      await this.intro();await this.desc();let wasConsumed=false;
       while(!this.go){
         const raw=await this.t.gi();if(!raw)continue;
-        const[cmd,arg]=this.pc(raw);let acted=true;
+        const[cmd,arg]=this.pc(raw);let acted=true;this.totalMoves++;
         switch(cmd){
           case'go':acted=await this.doMv(arg);break;
           case'look':await this.desc();acted=false;break;
-          case'examine':if(arg)await this.doEx(arg);else{this.t.pl('\n  Examine what? Try: examine <item name>');acted=false}break;
-          case'take':if(arg)this.doTk(arg);else{this.t.pl('\n  Take what? Try: take <item name>');acted=false}break;
+          case'examine':if(arg)await this.doEx(arg);else{this.t.pl('\n  Examine what?');acted=false}break;
+          case'take':if(arg)this.doTk(arg);else{this.t.pl('\n  Take what?');acted=false}break;
           case'hum':await this.doHum();break;
+          case'open':await this.doOpenSafe();break;
           case'inventory':this.doInv();acted=false;break;
           case'memories':this.doMem();acted=false;break;
           case'map':this.doMap();acted=false;break;
           case'help':this.doHelp();acted=false;break;
-          case'quit':this.t.pl('\n  You head for the front door. It won\'t budge.\n  Maybe there\'s more to find.');acted=false;break;
           case'whisper':this.doWhisper();acted=false;break;
+          case'quit':this.t.pl('\n  The front door won\'t budge. Maybe there\'s more to find.');acted=false;break;
           default:this.t.pl('\n  '+pick(['You\'re not sure what you mean. Try HELP.','That doesn\'t make sense. Try HELP.','You pause, confused. Try HELP.']));acted=false}
         if(this.go)break;
-        if(acted){const ev=this.td();if(ev){const con=await this.hde(ev);if(con){await this.t.w(2000);this.t.pl('');await this.t.sp('  You open your eyes.',50);await this.t.w(2000);this.rs();wc=true;break}}}}
-      if(this.go)break;if(!wc)break}
+        if(acted){this.mv++;const ev=this.tickDarkness();if(ev){const con=await this.hde(ev);if(con){await this.t.w(2000);this.t.pl('');await this.t.sp('  You open your eyes.',50);await this.t.w(2000);this.reset();wasConsumed=true;break}}}}
+      if(this.go)break;if(!wasConsumed)break}
     this.t.pl('\n  Thank you for playing.\n')}
+
+  // ─────────── SCREENS ─────────────────────────
 
   async title(){this.t.cl();this.t.pl('');
     this.t.pl('    ╔══════════════════════════════════════════════════╗','ta');
     this.t.pl('    ║                                                  ║','ta');
-    this.t.pl('    ║       T H E   F O R G O T T E N   O N E          ║','ta');
+    this.t.pl('    ║       T H E   F O R G O T T E N   O N E         ║','ta');
     this.t.pl('    ║                                                  ║','ta');
-    this.t.pl('    ║      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░       ║','ta');
+    this.t.pl('    ║      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░        ║','ta');
     this.t.pl('    ║      ░ A game of memory, loss, and truth ░       ║','ta');
-    this.t.pl('    ║      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░       ║','ta');
-    this.t.pl('    ║                   M.B. Parks                     ║','ta');
+    this.t.pl('    ║      ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░        ║','ta');
+    this.t.pl('    ║                                                  ║','ta');
     this.t.pl('    ╚══════════════════════════════════════════════════╝','ta');
     this.t.pl('');this.t.pl('                  Press ENTER to begin.','ts');this.t.pl('');
-    await this.t.gi(true);this.t.cl()}
+    await this.t.gi(true);this.snd.init();this.t.cl()}
 
   async intro(){this.t.cl();this.t.ps('═');this.t.pl('');
     if(this.rc===0){await this.t.sp('  You open your eyes.',40);await this.t.w(800);
       await this.t.sp('  You\'re standing in the entrance hall of a house. An old one — peeling wallpaper, dust on every surface, the particular silence of a place where no one has spoken in a long time.',20);await this.t.w(400);this.t.pl('');
-      await this.t.sp('  You can\'t remember how you got here. You must have come in through the front door, but you don\'t remember opening it. You don\'t remember what you were doing before this moment.',20);await this.t.w(400);this.t.pl('');
-      await this.t.sp('  Come to think of it, you can\'t remember much of anything. Your name, your face, where you live — it\'s all fog. But this house feels familiar. Not the way a stranger\'s house feels, but the way your own does after a long trip away.',20);await this.t.w(400);this.t.pl('');
+      await this.t.sp('  You can\'t remember how you got here. You don\'t remember opening the front door. You don\'t remember what you were doing before this moment.',20);await this.t.w(400);this.t.pl('');
+      await this.t.sp('  Come to think of it, you can\'t remember much of anything. Your name, your face — it\'s all fog. But this house feels familiar. Like your own after a long trip away.',20);await this.t.w(400);this.t.pl('');
       await this.t.sp('  Maybe there\'s something here that will help you remember.',20);
     }else{await this.t.sp('  You open your eyes.',40);await this.t.w(800);
-      await this.t.sp('  You\'ve been here before — you\'re sure of it. But the rooms are different. As if the house rearranged itself while you weren\'t looking.',20);await this.t.w(400);this.t.pl('');
-      await this.t.sp('  Your mind is blank again. Whatever you knew — it\'s gone. Swallowed by that darkness. But the house still has its secrets.',20);await this.t.w(400);this.t.pl('');
-      await this.t.sp('  You have to be faster this time. The darkness is still here.',20)}
+      await this.t.sp('  You\'ve been here before. But the rooms are different. As if the house rearranged itself while you weren\'t looking.',20);await this.t.w(400);this.t.pl('');
+      await this.t.sp('  Your mind is blank again. Whatever you knew — gone. Swallowed by the darkness. But the house still has its secrets.',20);await this.t.w(400);this.t.pl('');
+      await this.t.sp('  You have to be faster this time.',20)}
     this.t.pl('');this.t.ps('═');this.t.pl('');this.t.pl('  Type HELP for a list of commands.');this.t.pl('')}
 
   doHelp(){this.t.pl('');this.t.ps();
-    const cm=[['go <direction>','Move (n, s, e, w)'],['look','Examine surroundings'],['take <item>','Pick up an item'],['examine <item>','Study an item closely'],['hum','Hum a melody'],['inventory','What you\'re carrying'],['memories','Recovered memories'],['map','Rooms visited'],['help','This list']];
-    this.t.pl('  COMMANDS:','ht');for(const[c,d]of cm){this.t.p('    '+c.padEnd(20),'hc');this.t.pl('— '+d,'ht')}
+    [['go <direction>','Move (n, s, e, w)'],['look','Examine surroundings'],['take <item>','Pick up an item'],['examine <item>','Study closely'],['hum','Hum a melody'],['inventory','What you carry'],['memories','What you remember'],['map','Rooms visited'],['help','This list']].forEach(([c,d])=>{this.t.p('    '+c.padEnd(20),'hc');this.t.pl('— '+d,'ht')});
     this.t.pl('');this.t.pl('  Also: n, s, e, w as shortcuts.','ht');this.t.ps()}
 
-  async desc(){const rm=this.rooms[this.cr];this.t.pl('');this.t.pb(rm.name);this.t.pl('');this.t.pl('  '+rm.desc);
-    const uc=rm.items.filter(k=>!this.hi(k));if(uc.length){this.t.pl('');for(const ik of uc)this.t.pl('  '+this.ai[ik].rd,'it')}
+  // ─────────── ROOM DESCRIPTION ─────────────────
+
+  async desc(){
+    const rm=this.rooms[this.cr];rm.visits++;
+    const cl=this.getCorruptLevel();
+    this.t.pl('');this.t.pb(rm.name);this.t.pl('');
+
+    // Room description — possibly corrupted
+    const desc=cl>0?this.corrupt(rm.desc,cl):rm.desc;
+    this.t.pl('  '+desc);
+
+    // Room decay based on total visits
+    if(rm.decay.length>0&&rm.visits>=3){
+      const di=Math.min(Math.floor((rm.visits-3)/2),rm.decay.length-1);
+      this.t.pl('');this.t.pl('  '+rm.decay[di],'decay');
+    }
+
+    // Items
+    const uc=rm.items.filter(k=>!this.hi(k));
+    if(uc.length){this.t.pl('');for(const ik of uc){
+      let rd=this.ai[ik].rd;if(cl>0)rd=this.corrupt(rd,cl);
+      this.t.pl('  '+rd,'it')}}
+
+    // Show safe if this is the safe room
+    if(this.cr===this.safeRoom){this.t.pl('');
+      if(this.safeOpened){
+        if(!this.hi('fathers_letter'))this.t.pl('  The iron strongbox sits open. Inside: a single yellowed letter.');
+        else this.t.pl('  The iron strongbox sits open and empty.');
+      }else{
+        let sd='An iron strongbox sits in the corner, its lock crusted with age but solid. Whatever is inside was meant to stay private.';
+        if(cl>0)sd=this.corrupt(sd,cl);this.t.pl('  '+sd,'it')}}
+
+    // Exits
     const pts=[];for(const[d,rid]of Object.entries(rm.exits)){const tg=this.rooms[rid];
       const st=rm.floor!==tg.floor?(rm.floor==='g'?' ↑stairs':' ↓stairs'):'';
       pts.push(d.toUpperCase()+st+' ('+tg.name+')')}
     this.t.pl('');this.t.pl('  Exits: '+pts.join(', '),'ex');
-    if(!rm.fv){this.t.pl('');this.t.pl('  '+pick(rm.amb),'am')}rm.fv=false}
 
-  async doMv(dir){dir=DS[dir]||dir;if(!['north','south','east','west'].includes(dir)){this.t.pl('\n  That\'s not a direction you recognize.');return false}
+    // Ambient (revisits only)
+    if(!rm.fv){this.t.pl('');
+      let amb=pick(rm.amb);if(cl>0)amb=this.corrupt(amb,cl);
+      this.t.pl('  '+amb,cl>0?'glitch':'am');
+
+      // Clock ambient (10% chance on revisit)
+      if(Math.random()<0.1){this.t.pl('');this.t.pl('  '+this.getClockAmbient(),'clock')}
+    }
+    rm.fv=false;
+  }
+
+  // ─────────── MOVEMENT ─────────────────────────
+
+  async doMv(dir){dir=DSH[dir]||dir;if(!['north','south','east','west'].includes(dir)){this.t.pl('\n  Not a direction.');return false}
     const rm=this.rooms[this.cr];if(!rm.exits[dir]){this.t.pl('\n  Nothing that way — just a wall.');return false}
-    const of=rm.floor;this.cr=rm.exits[dir];const nf=this.rooms[this.cr].floor;this.mv++;this.et=0;this.t.se(null);
-    if(of!==nf)this.t.pl('\n  '+pick(nf==='u'?['You climb the stairs.','You head upstairs.']:['You head downstairs.','You descend the steps.']));
-    else this.t.pl('\n  '+pick(['You walk through the doorway.','You step into the next room.','You head onward.','Your footsteps are quiet on the old floor.']));
+    const of=rm.floor;this.cr=rm.exits[dir];const nf=this.rooms[this.cr].floor;this.et=0;this.t.se(null);
+    this.snd.stopRumble();
+    if(of!==nf){this.snd.setFloor(nf);this.t.pl('\n  '+pick(nf==='u'?['You climb the stairs.','You head upstairs.']:['You descend.','You head downstairs.']))}
+    else this.t.pl('\n  '+pick(['You walk through the doorway.','You step into the next room.','You head onward.','Quiet footsteps on the old floor.']));
     await this.desc();return true}
 
+  // ─────────── ITEMS ────────────────────────────
+
   doTk(txt){const k=this.fi(txt);const rm=this.rooms[this.cr];
-    if(!k){this.t.pl('\n  You don\'t see anything by that name.');return}
-    if(!rm.items.includes(k)){this.t.pl('\n  That isn\'t here.');return}
-    if(this.hi(k)){this.t.pl('\n  You already have that.');return}
+    if(!k){this.t.pl('\n  Nothing by that name.');return}if(!rm.items.includes(k)){this.t.pl('\n  That isn\'t here.');return}
+    if(this.hi(k)){this.t.pl('\n  Already have it.');return}
     this.inv.push(k);this.t.pl('\n  You pick up the '+this.ai[k].name+'.');this.t.pl('  Acquired: '+this.ai[k].name,'acq')}
 
-  async doEx(txt){const k=this.fi(txt);if(!k){this.t.pl('\n  Examine what?');return}
+  async doEx(txt){
+    // Check for safe/strongbox examination
+    if(['safe','strongbox','box','lockbox'].includes(txt.toLowerCase().trim())){await this.doOpenSafe();return}
+    const k=this.fi(txt);if(!k){this.t.pl('\n  Examine what?');return}
     if(!this.hi(k)){const rm=this.rooms[this.cr];if(rm.items.includes(k))this.t.pl('\n  Pick it up first. Try: take '+k);else this.t.pl('\n  You don\'t have that.');return}
     const it=this.ai[k];this.t.pl('');this.t.ps('·');this.t.pl('  '+it.ex);
-    if(it.im&&!this.hm(k)){this.mu.push(k);this.t.se('mem');await this.t.w(800);this.t.pl('');this.t.ps('✦');this.t.pl('');
-      this.t.pl('  ░░░  M E M O R Y   R E C O V E R E D  ░░░','mh');this.t.pl('');
+    if(it.im&&!this.hm(k)){this.mu.push(k);this.t.se('mem');this.snd.playMemoryChord();await this.t.w(800);
+      this.t.pl('');this.t.ps('✦');this.t.pl('');this.t.pl('  ░░░  M E M O R Y   R E C O V E R E D  ░░░','mh');this.t.pl('');
       await this.t.sp('  '+it.mem,20,'mt');this.t.pl('');this.t.pl('  ▸ '+it.tag,'mg');this.t.pl('  ▸ Memories: '+this.mc+'/'+this.ta,'mg');
       if(k==='locket'){this.t.pl('');this.t.pl('  ▸ You learned the lullaby. You can HUM it now.','mg')}
       this.t.pl('');this.t.ps('✦');
-      if(this.mc===3){await this.t.w(600);this.t.pl('');await this.t.sp('  Elias Wren. Professor. Husband. You have a name now. You have a life. The house is YOURS. So why can\'t you remember leaving?',20)}
-      if(this.mc===4){await this.t.w(600);this.t.pl('');await this.t.sp('  A mother, a career, a wife, a son. Someone who loved and was loved. But there\'s a gap at the center: what happened to Elias Wren?',20)}
+      if(this.mc===3){await this.t.w(600);this.t.pl('');await this.t.sp('  Elias Wren. Professor. Husband. You have a name. The house is YOURS. So why can\'t you remember leaving?',20)}
+      if(this.mc===4){await this.t.w(600);this.t.pl('');await this.t.sp('  A mother, a career, a wife, a son. Someone loved. But: what happened to Elias Wren?',20)}
+      if(this.mc===5){await this.t.w(600);this.t.pl('');await this.t.sp('  Not all memories are kind. Some cut. But they\'re yours — every one. The greenhouse AND the closed door. The wedding AND the silence. You can\'t choose which parts of yourself to remember.',20)}
       await this.t.w(500);this.t.se(null);if(this.mc===this.ta)await this.finale();
     }else if(it.im){this.t.pl('\n  The memory is vivid already.')}
-    else{this.t.pl('');this.t.pl('  It doesn\'t stir memories, but something about it','fl');this.t.pl('  feels important. You hold onto it.','fl')}}
+    else{this.t.pl('');this.t.pl('  No memories stir, but something about it','fl');this.t.pl('  feels important. You hold onto it.','fl')}}
+
+  // ─────────── HUM ──────────────────────────────
+
+  async doOpenSafe(){
+    if(this.cr!==this.safeRoom){this.t.pl('\n  There\'s no safe here.');return}
+    if(this.safeOpened){this.t.pl('\n  The strongbox is already open.');return}
+    if(!this.hi('iron_key')){this.t.pl('');
+      await this.t.sp('  The strongbox is locked. The lock is old iron — heavy, unyielding. You\'d need a key. A substantial one, made for exactly this kind of lock.',20);return}
+    this.t.pl('');this.t.ps('·');
+    await this.t.sp('  You press the iron key into the lock. It resists — then turns with a grinding click that echoes through the room. The lid swings open on rusted hinges.',20);
+    await this.t.w(800);this.t.pl('');
+    await this.t.sp('  Inside the strongbox: a single folded letter, its paper brittle and yellowed. Nothing else. Whatever was worth locking away, it was this.',20);
+    this.t.pl('');
+    await this.t.sp('  You feel a coldness that has nothing to do with the room. Part of you knew this was here. Part of you locked it away on purpose.',20);
+    this.t.ps('·');
+    this.safeOpened=true;this.rooms[this.safeRoom].items.push('fathers_letter');
+    this.t.pl('\n  The letter is here for the taking. If you want it.')}
 
   async doHum(){if(!this.hl()){this.t.pl('\n  '+pick(DK_NO));return}
-    if(this.iid()){this.t.pl('');await this.t.sp('  '+pick(DK_BAN),20,'db');this.da=false;this.dbu=this.mv+8+Math.floor(Math.random()*7);this.et=0;this.t.se(null);
-    }else{this.t.pl('\n  You hum the lullaby — three notes rising, three notes falling.');this.t.pl('  The melody fills the empty room. It feels like company.');
-      if(this.idn()){this.t.pl('');this.t.pl('  Somewhere close, something recoils. The heaviness thins.');this.md()}}}
+    if(this.iid()){this.t.pl('');this.snd.playBanish();await this.t.sp('  '+pick(DK_BAN),20,'db');
+      this.da=false;this.dbu=this.mv+8+Math.floor(Math.random()*7);this.et=0;this.t.se(null);this.snd.leaveDarkness(this.rooms[this.cr].floor);
+    }else{this.t.pl('\n  You hum the lullaby — three notes rising, three notes falling.');this.snd.playLullaby();
+      this.t.pl('  The melody fills the empty room. It feels like company.');
+      if(this.idn()){this.t.pl('');this.t.pl('  Somewhere close, something recoils. The heaviness thins.');this.moveDarkness()}}}
 
-  doInv(){this.t.pl('');this.t.ps();if(!this.inv.length)this.t.pl('  You\'re not carrying anything.');
-    else{this.t.pl('  You are carrying:');for(const k of this.inv){let m='';if(this.mu.includes(k))m=' ✦';else if(this.ai[k].im)m=' (not examined)';this.t.pl('    • '+this.ai[k].name+m)}}this.t.ps()}
+  // ─────────── INVENTORY / MEMORY / MAP ─────────
 
-  doMem(){this.t.pl('');this.t.ps('✦');if(!this.mu.length)this.t.pl('  Nothing. You must have been someone, but who?');
+  doInv(){this.t.pl('');this.t.ps();
+    if(!this.inv.length)this.t.pl('  You\'re not carrying anything.');
+    else{this.t.pl('  You are carrying:');
+      const cl=this.getCorruptLevel();
+      for(const k of this.inv){let nm=this.ai[k].name;
+        // Unreliable inventory names near darkness
+        if(cl>=2&&Math.random()<0.3)nm=nm.split(' ').map(w=>Math.random()<0.4?'—'.repeat(w.length):w).join(' ');
+        let m='';if(this.mu.includes(k))m=' ✦';else if(this.ai[k].im)m=' (not examined)';
+        this.t.pl('    • '+nm+m)}}this.t.ps()}
+
+  doMem(){this.t.pl('');this.t.ps('✦');if(!this.mu.length)this.t.pl('  Nothing. You must have been someone.');
     else{this.t.pl('  W H A T   Y O U   R E M E M B E R:');this.t.pl('');for(const k of this.mu)this.t.pl('    ✦ '+this.ai[k].tag);this.t.pl('');
       const r=this.ta-this.mc;if(r>0)this.t.pl('  '+r+' fragment'+(r!==1?'s':'')+' still missing...')}this.t.ps('✦')}
 
   doMap(){this.t.pl('');this.t.ps();this.t.pl('  R O O M S   V I S I T E D:');this.t.pl('');
-    for(const id of this.ids){const rm=this.rooms[id];if(!rm.fv||id===this.cr){const h=id===this.cr?' ◄ you are here':'';
+    for(const id of this.ids){const rm=this.rooms[id];if(!rm.fv||id===this.cr){const h=id===this.cr?' ◄':'';
       const uc=rm.items.filter(k=>!this.hi(k));const n=uc.length?' ['+uc.length+']':'';const f=rm.floor==='u'?'▲':'▼';
       this.t.pl('    '+f+' '+rm.name+n+h)}}this.t.pl('');this.t.pl('  ▲ upper  ▼ ground');this.t.ps()}
 
   doWhisper(){this.t.pl('');this.t.ps('·');this.t.pl('');
     this.t.pl('  You lean close to the wall and whisper.');this.t.pl('');
-    this.t.pl('  For a moment, nothing. Then — from somewhere beyond the');
-    this.t.pl('  wallpaper, beyond the plaster, beyond the house itself —');
-    this.t.pl('  a voice whispers back. Not Elias. Not Margaret. Someone');
-    this.t.pl('  else entirely. Someone who built these walls from words.');this.t.pl('');
+    this.t.pl('  For a moment, nothing. Then — from beyond the wallpaper,');
+    this.t.pl('  beyond the plaster, beyond the house — a voice whispers');
+    this.t.pl('  back. Not Elias. Not Margaret. Someone who built these');
+    this.t.pl('  walls from words.');this.t.pl('');
     this.t.pl('  "This story was crafted by Michael B. Parks.');
-    const link=document.createElement('span');link.innerHTML='\n  Visit him at <a href="https://michaelbparks.com" target="_blank" rel="noopener" style="color:#d4a55a;text-decoration:underline;cursor:pointer">michaelbparks.com</a>\n';
-    this.t.o.appendChild(link);
-    this.t.pl('');this.t.pl('  Thank you for listening."');
-    this.t.pl('');this.t.ps('·')}
+    this.t.phtml('  Visit him at <a href="https://michaelbparks.com" target="_blank" rel="noopener">michaelbparks.com</a>');
+    this.t.pl('');this.t.pl('  Thank you for listening."');this.t.pl('');this.t.ps('·')}
+
+  // ─────────── DARKNESS EVENTS ──────────────────
 
   async hde(ev){
-    if(ev==='arr'){this.t.se('dk');this.t.pl('');this.t.ps('░');await this.t.sp('\n  '+pick(DK_ARR),20,'dt');this.t.pl('');
-      this.t.pl('  '+this.et+' moment'+(this.et!==1?'s':'')+' before it reaches you. '+(this.hl()?'HUM or RUN.':'LEAVE. NOW.'),'du');this.t.ps('░');return false}
-    if(ev==='esc'){this.t.se('dk');const r=this.et;const ms=DK_ESC[r]||DK_ESC[1];this.t.pl('');this.t.ps('░');await this.t.sp('\n  '+pick(ms),20,'dt');this.t.pl('');
-      if(r===1)this.t.pl('  Last chance. '+(this.hl()?'HUM or LEAVE.':'RUN.'),'du');else this.t.pl('  '+r+' moment'+(r!==1?'s':'')+' left.','du');this.t.ps('░');return false}
-    if(ev==='con'){this.t.se('dk');this.t.pl('');this.t.ps('░');this.t.pl('');
+    if(ev==='arr'){this.t.se('dk');this.snd.enterDarkness();this.snd.playDarknessRumble(0);this.t.pl('');this.t.ps('░');
+      await this.t.sp('\n  '+pick(DK_ARR),20,'dt');this.t.pl('');
+      this.t.pl('  '+this.et+' moment'+(this.et!==1?'s':'')+'. '+(this.hl()?'HUM or RUN.':'LEAVE. NOW.'),'du');this.t.ps('░');return false}
+    if(ev==='esc'){this.t.se('dk');this.snd.playDarknessRumble(this.maxEt-this.et);
+      const ms=DK_ESC[this.et]||DK_ESC[1];this.t.pl('');this.t.ps('░');
+      await this.t.sp('\n  '+pick(ms),20,'dt');this.t.pl('');
+      if(this.et===1)this.t.pl('  Last chance. '+(this.hl()?'HUM or LEAVE.':'RUN.'),'du');
+      else this.t.pl('  '+this.et+' left.','du');this.t.ps('░');return false}
+    if(ev==='con'){this.t.se('dk');this.snd.playDarknessRumble(2);this.t.pl('');this.t.ps('░');this.t.pl('');
       await this.t.sp('  The darkness reaches you.',30,'dc');await this.t.w(1000);this.t.pl('');
-      await this.t.sp('  It doesn\'t hurt. That\'s the worst part. It feels like falling asleep — like letting go. The memories unspool: Thomas, Margaret, the greenhouse, the lullaby. One by one, like beads off a broken string.',25,'dc');
-      await this.t.w(800);this.t.pl('');
+      await this.t.sp('  It doesn\'t hurt. That\'s the worst part. It feels like falling asleep — like letting go. The memories unspool: Thomas, Margaret, the greenhouse, the lullaby. One by one.',25,'dc');await this.t.w(800);this.t.pl('');
       await this.t.sp('  You forget your son\'s name.',35,'dc');await this.t.w(600);
       await this.t.sp('  You forget your wife\'s face.',35,'dc');await this.t.w(600);
       await this.t.sp('  You forget your mother\'s song.',35,'dc');await this.t.w(600);
       await this.t.sp('  You forget that you forgot.',40,'dc');await this.t.w(1500);this.t.pl('');
-      await this.t.sp('  And then...',80,'dc');this.t.pl('');this.t.ps('░');this.t.se(null);return true}
+      await this.t.sp('  And then...',80,'dc');this.t.pl('');this.t.ps('░');
+      this.snd.stopDrone();this.snd.stopRumble();this.t.se(null);return true}
     if(ev==='near'){this.t.pl('');this.t.pl('  '+pick(DK_NEAR),'dw');return false}return false}
 
-  async finale(){this.t.di();await this.t.w(2000);this.t.cl();this.t.pl('');this.t.ps('═');this.t.pl('');
+  // ─────────── FINALE ───────────────────────────
+
+  async finale(){
+    this.t.di();this.snd.stopDrone();this.snd.stopRumble();
+    await this.t.w(2000);this.t.cl();this.t.pl('');this.t.ps('═');this.t.pl('');
+
     await this.t.sp('  Margaret\'s letter. You read it a third time, slower.',30,'ft');await this.t.w(800);this.t.pl('');
     await this.t.sp('  "It has been a year."',35,'ft');await this.t.w(600);
     await this.t.sp('  "I\'ve kept the study exactly as you left it."',35,'ft');await this.t.w(600);
     await this.t.sp('  "I hope wherever you are, you can hear me."',35,'ft');await this.t.w(1500);this.t.pl('');
-    await this.t.sp('  You told yourself she was writing to someone away on a trip. A long journey. An absence that could be explained.',25,'ft');await this.t.w(800);
-    await this.t.sp('  But people on trips come home. Margaret didn\'t say "when you come home." She said "wherever you are." She said "I hope you can hear me."',25,'ft');await this.t.w(1000);
+    await this.t.sp('  You told yourself she was writing to someone away on a trip. An absence that could be explained.',25,'ft');await this.t.w(800);
+    await this.t.sp('  But people on trips come home. Margaret said "wherever you are." She said "I hope you can hear me."',25,'ft');await this.t.w(1000);
     await this.t.sp('  Those aren\'t words you write to someone who\'s coming back.',30,'ft');await this.t.w(2000);
+
     this.t.pl('');this.t.ps();this.t.pl('');
-    await this.t.sp('  The pocket watch. Stopped at 11:47. The crystal cracked — but you never asked what cracked it. A watch doesn\'t crack on a nightstand.',25,'ft');await this.t.w(800);
+    await this.t.sp('  The pocket watch. Stopped at 11:47. The crystal cracked — but you never asked what cracked it.',25,'ft');await this.t.w(800);
     await this.t.sp('  It cracks when it hits a desk. When someone falls forward.',30,'fr');await this.t.w(1200);this.t.pl('');
-    await this.t.sp('  The study. The chair pushed back at that angle. You thought someone stood up in a hurry.',25,'ft');await this.t.w(800);
+    await this.t.sp('  The study. The chair at that angle. You thought someone stood up.',25,'ft');await this.t.w(800);
     await this.t.sp('  Nobody stood up.',40,'fr');await this.t.w(2000);
+
     this.t.pl('');this.t.ps();this.t.pl('');
-    await this.t.sp('  You walk to the nearest mirror. Wipe it clean. The glass is perfectly clear.',25,'ft');await this.t.w(800);
+    await this.t.sp('  You walk to the nearest mirror. Wipe it clean.',25,'ft');await this.t.w(800);
     await this.t.sp('  The room is reflected perfectly. Where you are standing, there is nothing.',25,'fr');await this.t.w(2500);
-    this.t.pl('');this.t.ps('✦');this.t.se('mem');this.t.pl('');
+
+    // ─── INTERACTIVE TWIST ───
+    this.t.pl('');this.t.ps('✦');this.t.pl('');
+    await this.t.sp('  You understand now. Don\'t you?',30,'fr');await this.t.w(1500);
+    this.t.pl('');this.t.pl('  What happened to Elias Wren?','twist-input');this.t.pl('');
+
+    const answer=await this.t.gi(true);
+    const understood=answer&&/\b(die[ds]?|dead|death|kill|ghost|spirit|passed|gone|heart|buried|never\s*left)\b/i.test(answer);
+
+    this.t.pl('');
+    this.snd.playFinale();
+
+    if(understood){
+      await this.t.sp('  Yes.',50,'fr');await this.t.w(1500);this.t.pl('');
+    }else{
+      await this.t.sp('  You don\'t want to say it. So the house says it for you.',30,'ft');await this.t.w(1500);this.t.pl('');
+    }
+
+    this.t.se('mem');
+
     await this.t.sp('  Your name was Elias Wren.',40,'fr');await this.t.w(600);
     await this.t.sp('  You were a professor of botany at Ashworth University.',35,'fr');await this.t.w(600);
     await this.t.sp('  You married Margaret on an October evening in 1911.',35,'fr');await this.t.w(600);
     await this.t.sp('  Your son Thomas had your eyes and her laugh.',35,'fr');await this.t.w(600);this.t.pl('');
+    await this.t.sp('  Your father Robert never forgave you for leaving the farm.',35,'ft');await this.t.w(600);
+    await this.t.sp('  He died in 1919 without another word between you.',35,'ft');await this.t.w(600);
+    await this.t.sp('  You kept his letter in a locked box because you couldn\'t read it again.',35,'ft');await this.t.w(600);
+    await this.t.sp('  And you couldn\'t throw it away.',35,'ft');await this.t.w(1000);this.t.pl('');
     await this.t.sp('  On November 2nd, 1923, you were working late. You felt a tightness in your chest. Your watch struck the desk and cracked.',30,'ft');await this.t.w(800);
     await this.t.sp('  The time was 11:47 PM.',40,'fr');await this.t.w(1200);
-    await this.t.sp('  Margaret found you the next morning. She kept your study exactly as you left it.',30,'ft');await this.t.w(800);
+    await this.t.sp('  Margaret found you the next morning. She kept the study exactly as you left it.',30,'ft');await this.t.w(800);
     await this.t.sp('  She never moved a single paper.',35,'ft');await this.t.w(2000);
+
     this.t.pl('');this.t.ps('✦');this.t.pl('');
     await this.t.sp('  The front door that wouldn\'t open. The light that never changed. The silence outside.',25,'ft');await this.t.w(800);this.t.pl('');
     await this.t.sp('  The house isn\'t abandoned. The house is all that\'s left.',30,'fr');await this.t.w(1200);
     await this.t.sp('  You didn\'t find this place. You never left it.',30,'fr');await this.t.w(1500);
-    if(this.rc>0){this.t.pl('');await this.t.sp('  You have been here since 11:47 PM on November 2nd, 1923. The darkness that swallowed you '+this.rc+' time'+(this.rc!==1?'s':'')+' — it wasn\'t a monster. It was forgetting. Every time it took you, you lost yourself, and the house reshuffled around the gap. But you came back. You always came back.',20,'ft')}
-    else await this.t.sp('  You have been here since 11:47 PM on November 2nd, 1923, walking the same rooms for a hundred years.',25,'ft');
+
+    if(this.rc>0){this.t.pl('');
+      await this.t.sp('  You have been here since 11:47 PM on November 2nd, 1923. The darkness that swallowed you '+this.rc+' time'+(this.rc!==1?'s':'')+' — it wasn\'t a monster. It was forgetting. Every time it took you, the house reshuffled around the gap. But you came back. You always came back.',20,'ft')}
+    else await this.t.sp('  You have been here since 11:47 PM on November 2nd, 1923. A hundred years.',25,'ft');
     await this.t.w(1500);this.t.pl('');
     await this.t.sp('  And the only reason you couldn\'t see yourself in the mirror is that there is nothing left to see.',30,'fr');await this.t.w(2000);
-    if(this.rc>0){this.t.pl('');await this.t.sp('  The darkness stirs one last time. It reaches for you.',25,'ft');await this.t.w(800);
-      await this.t.sp('  But you are Elias Wren. A husband, a father, a son, a scholar. Five memories and a hundred years of stubbornness. You are not nothing.',25,'fr');await this.t.w(800);
-      await this.t.sp('  You hum the lullaby — all of it this time — and the darkness dissolves like frost in morning sun.',25,'fc');await this.t.w(1200)}
+
+    if(this.rc>0){this.t.pl('');
+      await this.t.sp('  The darkness stirs one last time. It reaches for you.',25,'ft');await this.t.w(800);
+      await this.t.sp('  But you are Elias Wren. Six memories and a hundred years of stubbornness. You are not nothing.',25,'fr');await this.t.w(800);
+      this.snd.playLullaby();
+      await this.t.sp('  You hum the lullaby — all of it — and the darkness dissolves like frost in morning sun.',25,'fc');await this.t.w(1200)}
+
     this.t.pl('');this.t.ps('═');this.t.pl('');
-    await this.t.sp('  Somewhere, a curtain falls open. Beyond the glass — not grey sky, not silence — light. Warm, golden, the color of an October afternoon.',25,'fc');await this.t.w(1200);this.t.pl('');
-    await this.t.sp('  "There you are," Margaret says. "We\'ve been waiting."',35,'fc');await this.t.w(1200);
+    await this.t.sp('  Somewhere, a curtain falls open. Beyond the glass — light. Warm, golden, October.',25,'fc');await this.t.w(1200);this.t.pl('');
+
+    if(understood){
+      await this.t.sp('  Margaret is waiting in the garden. She doesn\'t look surprised.',30,'fc');await this.t.w(800);
+      await this.t.sp('  "I knew you\'d figure it out," she says. "You always were the clever one."',35,'fc');
+    }else{
+      await this.t.sp('  "There you are," Margaret says. "We\'ve been waiting."',35,'fc');
+    }
+    await this.t.w(1200);
     await this.t.sp('  Thomas waves. "Come ON, Papa!"',35,'fc');await this.t.w(1500);this.t.pl('');
+    await this.t.sp('  And behind them, further back, almost at the edge of the light — a man. Older. Stiff-backed. He doesn\'t smile. But he\'s there. He came.',25,'ft');await this.t.w(1000);
+    await this.t.sp('  Your father lifts his hand. Not a wave. Just an open palm. The closest Robert Wren ever came to saying he was wrong.',25,'ft');await this.t.w(1500);this.t.pl('');
     await this.t.sp('  The window opens easily. October air. Wood smoke and apples. For the first time in a hundred years, you feel the breeze.',25,'fc');await this.t.w(800);this.t.pl('');
     await this.t.sp('  You step through.',50,'fc');await this.t.w(2000);
+
     this.t.pl('');this.t.ps();this.t.pl('');
     await this.t.sp('  The house stands quiet. The rocking chair is still. The pocket watch reads 11:47.',25,'ft');await this.t.w(800);this.t.pl('');
-    await this.t.sp('  The chair in the study is pushed neatly in — as though someone has finally finished their work.',25,'ft');await this.t.w(1000);this.t.pl('');
+    await this.t.sp('  The chair in the study is pushed neatly in — as though someone has finally finished their work.',25,'ft');await this.t.w(1000);
+    await this.t.sp('  The strongbox sits open. The letter is gone.',25,'ft');await this.t.w(500);this.t.pl('');
     await this.t.sp('  The front door swings open. Autumn light floods the foyer.',25,'fc');await this.t.w(800);
     await this.t.sp('  The house breathes out, long and slow, and is still.',30,'fc');
-    this.t.se(null);await this.t.w(2000);this.t.pl('');this.t.pl('');this.t.ps('═');this.t.pl('');
-    const vi=Object.values(this.rooms).filter(r=>!r.fv).length;const ti=Object.values(this.rooms).reduce((s,r)=>s+r.items.length,0);
+    this.t.se(null);await this.t.w(2000);
+
+    this.t.pl('');this.t.pl('');this.t.ps('═');this.t.pl('');
+    const vi=Object.values(this.rooms).filter(r=>!r.fv).length;
+    const ti=Object.values(this.rooms).reduce((s,r)=>s+r.items.length,0);
     this.t.pl('          T H E   F O R G O T T E N   O N E','fi');this.t.pl('');
     this.t.pl('             Memories: '+this.mc+'/'+this.ta,'fs');
     this.t.pl('             Items: '+this.inv.length+'/'+ti,'fs');
     this.t.pl('             Rooms: '+vi+'/'+Object.keys(this.rooms).length,'fs');
-    this.t.pl('             Moves: '+this.mv,'fs');
+    this.t.pl('             Moves: '+this.totalMoves,'fs');
     if(this.rc>0)this.t.pl('             Times consumed: '+this.rc,'fs');
+    this.t.pl('             Understood: '+(understood?'Yes':'No'),'fs');
     this.t.pl('');this.t.pl('      Thank you for helping Elias remember.','fk');this.t.pl('      Thank you for helping him go home.','fk');
     this.t.pl('');this.t.ps('═');this.t.pl('');this.go=true}
 
+  // ─────────── PARSER ───────────────────────────
+
   pc(raw){const p=raw.split(/\s+/);if(!p.length)return[null,''];let c=p[0],a=p.slice(1).join(' ');
-    if('nsew north south east west'.split(' ').includes(c))return['go',c];
-    const al={go:'go',move:'go',walk:'go',head:'go',run:'go',flee:'go',escape:'go',look:'look',l:'look',
+    if('n s e w north south east west'.split(' ').includes(c))return['go',c];
+    const al={go:'go',move:'go',walk:'go',run:'go',flee:'go',look:'look',l:'look',
       examine:'examine',x:'examine',inspect:'examine',study:'examine',read:'examine',
       take:'take',get:'take',grab:'take',pick:'take',hum:'hum',sing:'hum',lullaby:'hum',
+      open:'open',unlock:'open',use:'open',
       inventory:'inventory',inv:'inventory',i:'inventory',memories:'memories',memory:'memories',remember:'memories',
-      help:'help','?':'help',commands:'help',map:'map',m:'map',quit:'quit',exit:'quit',q:'quit',
+      help:'help','?':'help',map:'map',m:'map',quit:'quit',exit:'quit',q:'quit',
       whisper:'whisper',credits:'whisper',about:'whisper',author:'whisper'};
     return[al[c]||c,a]}
 }
 
-document.addEventListener('DOMContentLoaded',()=>{new G(new T()).start()});
+// ─────────── BOOT ───────────────────────────────
+document.addEventListener('DOMContentLoaded',()=>{new Game(new Terminal()).start()});
 </script>
 </body>
 </html>
