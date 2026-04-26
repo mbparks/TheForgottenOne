@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
 ╔══════════════════════════════════════════════════════════════╗
-║               T H E   F O R G O T T E N   O N E              ║
-║          A Text Adventure of Memory and Discovery            ║
-║                       ~ M.B. Parks ~                         ║
+║              T H E   F O R G O T T E N   O N E              ║
+║         A Text Adventure of Memory and Discovery             ║
+║                     ~ Enhanced Edition ~                     ║
 ╚══════════════════════════════════════════════════════════════╝
 
 Dynamically generated layouts — no two games are the same.
@@ -827,9 +827,8 @@ def main():
     clear_screen()
     print("""
     ╔══════════════════════════════════════════════════════════╗
-    ║           T H E   F O R G O T T E N   O N E              ║
-    ║           ░ A game of memory, loss, and truth ░          ║
-    ║           ░            M.B. Parks             ░          ║
+    ║       T H E   F O R G O T T E N   O N E                 ║
+    ║      ░ A game of memory, loss, and truth ░               ║
     ╚══════════════════════════════════════════════════════════╝
     """)
     input("  Press ENTER to begin...\n")
